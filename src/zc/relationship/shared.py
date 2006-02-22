@@ -70,7 +70,8 @@ class Relationship(ImmutableRelationship):
             return self._sources
         def set(self, value):
             self._sources = tuple(value)
-            if interfaces.IRelationshipContainer.providedBy(self.__parent__):
+            if interfaces.IBidirectionalRelationshipIndex.providedBy(
+                self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -80,7 +81,8 @@ class Relationship(ImmutableRelationship):
             return self._targets
         def set(self, value):
             self._targets = tuple(value)
-            if interfaces.IRelationshipContainer.providedBy(self.__parent__):
+            if interfaces.IBidirectionalRelationshipIndex.providedBy(
+                self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -99,7 +101,8 @@ class OneToOneRelationship(ImmutableRelationship):
             return self._sources[0]
         def set(self, value):
             self._sources = (value,)
-            if interfaces.IRelationshipContainer.providedBy(self.__parent__):
+            if interfaces.IBidirectionalRelationshipIndex.providedBy(
+                self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -110,7 +113,8 @@ class OneToOneRelationship(ImmutableRelationship):
         def set(self, value):
             self._sources = (value,)
             import pdb; pdb.set_trace()
-            if interfaces.IRelationshipContainer.providedBy(self.__parent__):
+            if interfaces.IBidirectionalRelationshipIndex.providedBy(
+                self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -126,7 +130,8 @@ class OneToManyRelationship(ImmutableRelationship):
             return self._sources[0]
         def set(self, value):
             self._sources = (value,)
-            if interfaces.IRelationshipContainer.providedBy(self.__parent__):
+            if interfaces.IBidirectionalRelationshipIndex.providedBy(
+                self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -136,7 +141,8 @@ class OneToManyRelationship(ImmutableRelationship):
             return self._targets
         def set(self, value):
             self._targets = tuple(value)
-            if interfaces.IRelationshipContainer.providedBy(self.__parent__):
+            if interfaces.IBidirectionalRelationshipIndex.providedBy(
+                self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -152,7 +158,8 @@ class ManyToOneRelationship(ImmutableRelationship):
             return self._sources
         def set(self, value):
             self._sources = tuple(value)
-            if interfaces.IRelationshipContainer.providedBy(self.__parent__):
+            if interfaces.IBidirectionalRelationshipIndex.providedBy(
+                self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -162,7 +169,8 @@ class ManyToOneRelationship(ImmutableRelationship):
             return self._targets[0]
         def set(self, value):
             self._targets = (value,)
-            if interfaces.IRelationshipContainer.providedBy(self.__parent__):
+            if interfaces.IBidirectionalRelationshipIndex.providedBy(
+                self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -196,7 +204,7 @@ class AbstractContainer(persistent.Persistent):
             generateObjToken,
             index.TransposingTransitiveQueriesFactory('source', 'target'),
             **kwargs)
-        self.index = ix
+        self.relationIndex = ix
         ix.__parent__ = self
         self.resolveObjToken = resolveObjToken
         self.resolveRelToken = resolveRelToken
@@ -204,13 +212,12 @@ class AbstractContainer(persistent.Persistent):
 
     def reindex(self, object):
         assert object.__parent__ is self
-        assert self[object.__name__] is object
-        self.index.index_doc(
-            self.generateRelToken(object, self.index, {}), object)
+        self.relationIndex.index_doc(
+            self.generateRelToken(object, self.relationIndex, {}), object)
 
     def _resolveObjTokens(self, iterable):
         resolveObjToken = index.partial(
-            self.resolveObjToken, index=self.index, cache={})
+            self.resolveObjToken, index=self.relationIndex, cache={})
         for t in iterable:
             yield resolveObjToken(t)
 
@@ -223,28 +230,29 @@ class AbstractContainer(persistent.Persistent):
             self.findSourceTokens(target, maxDepth, minDepth, filter))
 
     def findTargetTokens(self, source, maxDepth=1, minDepth=None, filter=None):
-        return self.index.findValues(
-            'target', self.index.tokenizeQuery({'source': source}),
+        return self.relationIndex.findValues(
+            'target', self.relationIndex.tokenizeQuery({'source': source}),
             maxDepth, filter and ResolvingFilter(filter, self),
             targetFilter=minDepthFilter(minDepth))
 
     def findSourceTokens(self, target, maxDepth=1, minDepth=None, filter=None):
-        return self.index.findValues(
-            'source', self.index.tokenizeQuery({'target': target}),
+        return self.relationIndex.findValues(
+            'source', self.relationIndex.tokenizeQuery({'target': target}),
             maxDepth, filter and ResolvingFilter(filter, self),
             targetFilter=minDepthFilter(minDepth))
 
     def isLinked(self, source=None, target=None, maxDepth=1, minDepth=None,
                  filter=None):
+        tokenize = self.relationIndex.tokenizeQuery
         if source is not None:
-            return self.index.isLinked(
-                self.index.tokenizeQuery({'source': source}),
+            return self.relationIndex.isLinked(
+                tokenize({'source': source}),
                 maxDepth, filter and ResolvingFilter(filter, self),
-                target and self.index.tokenizeQuery({'target': target}),
+                target and tokenize({'target': target}),
                 targetFilter=minDepthFilter(minDepth))
         elif target is not None:
-            return self.index.isLinked(
-                self.index.tokenizeQuery({'target': target}),
+            return self.relationIndex.isLinked(
+                tokenize({'target': target}),
                 maxDepth, filter and ResolvingFilter(filter, self),
                 targetFilter=minDepthFilter(minDepth))
         else:
@@ -252,23 +260,42 @@ class AbstractContainer(persistent.Persistent):
                 'at least one of `source` and `target` must be provided')
 
     def _reverse(self, iterable):
+        resolveObjToken = index.partial(
+            self.resolveObjToken, index=self.relationIndex, cache={})
         for i in iterable:
             if interfaces.ICircularRelationshipPath.providedBy(i):
-                yield index.CircularRelationshipPath(reversed(i), i.cycled)
+                yield index.CircularRelationshipPath(
+                    reversed(i),
+                    [dict((k, resolveObjToken(v)) for k, v in search.items())
+                     for search in i.cycled])
             else:
                 yield tuple(reversed(i))
 
+    def _forward(self, iterable):
+        resolveObjToken = index.partial(
+            self.resolveObjToken, index=self.relationIndex, cache={})
+        for i in iterable:
+            if interfaces.ICircularRelationshipPath.providedBy(i):
+                yield index.CircularRelationshipPath(
+                    i,
+                    [dict((k, resolveObjToken(v)) for k, v in search.items())
+                     for search in i.cycled])
+            else:
+                yield i
+
     def findRelationshipTokens(self, source=None, target=None, maxDepth=1,
                                minDepth=None, filter=None):
+        tokenize = self.relationIndex.tokenizeQuery
         if source is not None:
-            return self.index.findRelationshipChains(
-                self.index.tokenizeQuery({'source': source}),
+            res = self.relationIndex.findRelationshipChains(
+                tokenize({'source': source}),
                 maxDepth, filter and ResolvingFilter(filter, self),
-                target and self.index.tokenizeQuery({'target': target}),
+                target and tokenize({'target': target}),
                 targetFilter=minDepthFilter(minDepth))
+            return self._forward(res)
         elif target is not None:
-            res = self.index.findRelationshipChains(
-                self.index.tokenizeQuery({'target': target}),
+            res = self.relationIndex.findRelationshipChains(
+                tokenize({'target': target}),
                 maxDepth, filter and ResolvingFilter(filter, self),
                 targetFilter=minDepthFilter(minDepth))
             return self._reverse(res)
@@ -278,7 +305,7 @@ class AbstractContainer(persistent.Persistent):
 
     def _resolveRelationshipChains(self, iterable):
         resolveRelToken = index.partial(
-            self.resolveRelToken, index=self.index, cache={})
+            self.resolveRelToken, index=self.relationIndex, cache={})
         for i in iterable:
             chain = (resolveRelToken(t) for t in i)
             if interfaces.ICircularRelationshipPath.providedBy(i):
@@ -310,16 +337,16 @@ class Container(AbstractContainer, zope.app.container.btree.BTreeContainer):
         while key in self._SampleContainer__data:
             key = self._generate_id(object)
         super(AbstractContainer, self).__setitem__(key, object)
-        self.index.index_doc(
-            self.generateRelToken(object, self.index, {}), object)
+        self.relationIndex.index_doc(
+            self.generateRelToken(object, self.relationIndex, {}), object)
 
     def remove(self, object):
-        token = self.generateRelToken(object, self.index, {})
+        token = self.generateRelToken(object, self.relationIndex, {})
         key = object.__name__
         if self[key] is not object:
             raise ValueError("Relationship is not stored as its __name__")
         super(AbstractContainer, self).__delitem__(key)
-        self.index.unindex_doc(token)
+        self.relationIndex.unindex_doc(token)
 
     @property
     def __setitem__(self):
@@ -331,28 +358,31 @@ try:
 except ImportError:
     pass
 else:
-    class ListContainer(AbstractContainer, zc.listcontainer.ListContainer):
+    class ListContainer(
+        AbstractContainer,
+        zc.listcontainer.ListContainer,
+        zope.app.container.contained.Contained):
 
         def __init__(self, *args, **kwargs):
             AbstractContainer.__init__(self, *args, **kwargs)
             zc.listcontainer.ListContainer.__init__(self)
     
         def _after_add(
-            self, item, oldSuper, oldPrevious, oldNext, super, previous, next):
-            res = super(AbstractListContainer, self)._after_add(
-                item, oldSuper, oldPrevious, oldNext, super, previous, next)
-            self.index.index_doc(
-                self.generateRelToken(item, self.index, {}), item)
+            self, item, oldSuper, oldPrevious, oldNext, super_, previous, next):
+            res = super(ListContainer, self)._after_add(
+                item, oldSuper, oldPrevious, oldNext, super_, previous, next)
             item.__parent__ = self
+            self.relationIndex.index_doc(
+                self.generateRelToken(item, self.relationIndex, {}), item)
             return res
 
         def _after_multi_add(self, items, previous, next, i):
-            res = super(AbstractListContainer, self)._after_multi_add(
+            res = super(ListContainer, self)._after_multi_add(
                 items, previous, next, i)
             for item in items:
-                self.index.index_doc(
-                    self.generateRelToken(item, self.index, {}), item)
                 item.__parent__ = self
+                self.relationIndex.index_doc(
+                    self.generateRelToken(item, self.relationIndex, {}), item)
             return res
 
         def movereplace(self, i, item):
@@ -360,10 +390,10 @@ else:
                 current = self[i]
             except IndexError:
                 current = None
-            super(AbstractListContainer, self).movereplace(i, item)
+            super(ListContainer, self).movereplace(i, item)
             if current is not None and current.super is not self:
-                self.index.unindex_doc(
-                    self.generateRelToken(item, self.index, {}))
+                self.relationIndex.unindex_doc(
+                    self.generateRelToken(current, self.relationIndex, {}))
 
         def pop(self, i=-1):
             try:
@@ -371,20 +401,20 @@ else:
             except IndexError:
                 pass # let the super call raise the right error
             else:
-                self.index.unindex_doc(
-                    self.generateRelToken(item, self.index, {}))
-            super(AbstractListContainer, self).pop(i)
+                self.relationIndex.unindex_doc(
+                    self.generateRelToken(current, self.relationIndex, {}))
+            super(ListContainer, self).pop(i)
 
         def __delslice__(self, i, j): # don't support step
             old = self[i:j]
-            super(AbstractListContainer, self).__delslice__(i, j)
+            super(ListContainer, self).__delslice__(i, j)
             if old:
                 for item in old:
-                    self.index.unindex_doc(
-                        self.generateRelToken(item, self.index, {}))
+                    self.relationIndex.unindex_doc(
+                        self.generateRelToken(item, self.relationIndex, {}))
 
         def silentpop(self, i=-1):
-            res = super(AbstractListContainer, self).silentpop(i)
-            self.index.unindex_doc(
-                self.generateRelToken(item, self.index, {}))
+            res = super(ListContainer, self).silentpop(i)
+            self.relationIndex.unindex_doc(
+                self.generateRelToken(res, self.relationIndex, {}))
             return res

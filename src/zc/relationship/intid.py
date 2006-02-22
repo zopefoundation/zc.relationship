@@ -56,5 +56,5 @@ else:
     def ListContainer():
         res = shared.ListContainer(
             generateToken, resolveToken, generateToken, resolveToken)
-        interface.alsoProvides(res, interfaces.IIntIdListRelationshipContainer)
+        interface.alsoProvides(res, interfaces.IIntIdRelationshipListContainer)
         return res

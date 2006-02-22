@@ -90,8 +90,15 @@ def tearDown(test):
     test.globs['db'].close()
     placelesssetup.tearDown()
 
+try:
+    import zc.listcontainer
+except ImportError:
+    has_listcontainer = False
+else:
+    has_listcontainer = True
+
 def test_suite():
-    return unittest.TestSuite((
+    res = unittest.TestSuite((
         doctest.DocFileSuite(
             'README.txt',
             setUp=placelesssetup.setUp, tearDown=placelesssetup.tearDown),
@@ -99,9 +106,12 @@ def test_suite():
             'container.txt', setUp=keyrefSetUp, tearDown=tearDown),
         doctest.DocFileSuite(
             'container.txt', setUp=intidSetUp, tearDown=tearDown),
-        doctest.DocFileSuite(
-            'listcontainer.txt', setUp=intidSetUp, tearDown=tearDown),
         ))
+    if has_listcontainer:
+        res.addTest(doctest.DocFileSuite(
+            'listcontainer.txt', setUp=intidSetUp, tearDown=tearDown,
+            globs={'ListContainer': intid.ListContainer}))
+    return res
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

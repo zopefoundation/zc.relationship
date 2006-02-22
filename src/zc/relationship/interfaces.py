@@ -19,6 +19,13 @@ from zope import interface
 from zope.app.container.interfaces import IReadContainer
 import zope.index.interfaces
 
+class ICircularRelationshipPath(interface.Interface):
+    """A tuple that has a circular relationship in the very final element of
+    the path."""
+
+    cycled = interface.Attribute(
+        """a list of the searches needed to continue the cycle""")
+
 class ITransitiveQueriesFactory(interface.Interface):
     def __call__(relchain, query, index, cache):
         """return iterable of queries to search further from given relchain.
@@ -121,17 +128,6 @@ class IIndex(zope.index.interfaces.IInjection,
             relationships that match it, and add them to the TODO list.
         """
 
-class IOptimizingIndex(IIndex):
-
-    deactivateSets = interface.Attribute(
-        '''bool: optimization setting.
-        controls if _p_deactivate is called after sets have been used.''')
-        
-    deactivateRels = interface.Attribute(
-        '''bool: optimization setting.
-        controls if _p_deactivate is called after relationship objects have
-        been used.''')
-
 class IRelationship(interface.Interface):
     """An asymmetric relationship."""
 
@@ -167,21 +163,7 @@ class IOneToManyRelationship(ISourceRelationship):
 class IManyToOneRelationship(ITargetRelationship):
     pass
 
-class ICircularRelationshipPath(interface.Interface):
-    """A tuple that has a circular relationship in the very final element of
-    the path."""
-
-    cycled = interface.Attribute(
-        """a frozenset of the objects that cycled at the very end of the
-        current path""")
-
-class IRelationshipContainer(IReadContainer):
-
-    def add(object):
-        """Add a relationship to the container"""
-
-    def remove(object):
-        """Remove a relationship from the container"""
+class IBidirectionalRelationshipIndex(interface.Interface):
 
     def findTargets(source, maxDepth=1, filter=None):
         """Given a source, iterate over objects to which it points.
@@ -237,6 +219,14 @@ class IRelationshipContainer(IReadContainer):
     def findRelationshipTokens(source, maxDepth=1, filter=None):
         """As findRelationships, but returns tokens rather than the objects"""
 
+class IRelationshipContainer(IReadContainer, IBidirectionalRelationshipIndex):
+
+    def add(object):
+        """Add a relationship to the container"""
+
+    def remove(object):
+        """Remove a relationship from the container"""
+
 class IKeyReferenceRelationshipContainer(IRelationshipContainer):
     """holds relationships of objects that can be adapted to IKeyReference.
     
@@ -248,3 +238,16 @@ class IIntIdRelationshipContainer(IRelationshipContainer):
     
     tokens are intids.
     """
+
+try:
+    import zc.listcontainer.interfaces
+except ImportError:
+    pass
+else:
+    class IRelationshipListContainer(
+        zc.listcontainer.interfaces.IListContainer,
+        IBidirectionalRelationshipIndex):
+        """Uses the list container API to manage the relationships"""
+
+    class IIntIdRelationshipListContainer(IRelationshipListContainer):
+        """tokens are intids"""

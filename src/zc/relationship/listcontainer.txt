@@ -1,59 +1,31 @@
-=====================
-RelationshipContainer
-=====================
+The relationship listcontainer is useful when you need to keep your
+relationships in a certain order.  Other than having the listcontainer API
+rather than the container API, there is no real difference: all the search APIs
+are identical.  Note that the search result order is unaffected by the
+order within the relationship listcontainer: the order only affects the 
+order in which relationships are iterated.
 
-The relationship container holds IRelationship objects. It includes an API to
+What follows is an adapted version of the container tests.
+
+The relationship listcontainer holds IRelationship objects. It includes an API to
 search for relationships and the objects to which they link, transitively and
 intransitively.  The relationships are objects in and of themselves, and they
 can themselves be related as sources or targets in other relationships.
 
-There are currently two implementations of the interface in this package.  One
-uses intids, and the other uses key references.  They have different
-advantages and disadvantages.
-
-The intids makes it possible to get intid values directly.  This can make it
-easier to merge the results with catalog searches and other intid-based
-indexes.  Possibly more importantly, it does not create ghosted objects for
-the relationships as they are searched unless absolutely necessary (for
-instance, using a relationship filter), but uses the intids alone for
-searches.  This can be very important if you are searching large databases of
-relationships: the relationship objects and the associated keyref links in the
-other implementation can flush the entire ZODB object cache, possibly leading
-to unpleasant performance characteristics for your entire application.
-
-On the other hand, there are a limited number of intids available: sys.maxint,
-or 2147483647 on a 32 bit machine.  As the intid usage increases, the
-efficiency of finding unique intids decreases.  This can be addressed by
-increasing IOBTrees maximum integer to be 64 bit (9223372036854775807) or by
-using the keyref implementation.  The keyref implementation also eliminates a
-dependency--the intid utility itself--if that is desired.  This can be
-important if you can't rely on having an intid utility, or if objects to be
-related span intid utilities.  Finally, it's possible that the direct
-attribute access that underlies the keyref implementation might be quicker
-than the intid dereferencing, but this is unproven and may be false.
-
-For our examples, we'll assume we've already imported a container and a
-relationship from one of the available sources.  You can use a relationship
-specific to your usage, or the generic one in shared, as long as it meets the
-interface requirements.
-
-It's also important to note that, while the relationship objects are an
-important part of the design, they should not be abused.  If you want to store
-other data on the relationship, it should be stored in another persistent
-object, such as an attribute annotation's btree.  Typically relationship
-objects will differ on the basis of interfaces, annotations, and possibly
-small lightweight values on the objects themselves.
+The package currently only contains an intid variant of the listcontainer.
+The class in the shared module would make it easy to have other approaches, if
+desired.
 
 We'll assume that there is an application named `app` with 30 objects in it
 (named 'ob0' through 'ob29') that we'll be relating.
 
-Creating a relationship container is easy.  We'll use an abstract Container,
-but it could be from the keyref or the intid modules.
+Creating a relationship container is easy.  We'll use an abstract
+ListContainer, but typically you would import it from the intid module.
 
     >>> from zc.relationship import interfaces
-    >>> container = Container()
+    >>> container = ListContainer()
     >>> from zope.interface.verify import verifyObject
-    >>> verifyObject(interfaces.IRelationshipContainer, container)
+    >>> verifyObject(interfaces.IRelationshipListContainer, container)
     True
 
 The containers can be used as parts of other objects, or as standalone local
@@ -67,11 +39,11 @@ specify it here by hand.
     >>> interface.alsoProvides(container, ILocalUtility)
     >>> sm = app.getSiteManager()
     >>> package = sm['default']
-    >>> package['lineage_relationship'] = container
+    >>> package['ordered_containment_relationship'] = container
     >>> import zope.app.utility
     >>> registration = zope.app.utility.UtilityRegistration(
-    ...     'lineage', interfaces.IRelationshipContainer,
-    ...     package['lineage_relationship'])
+    ...     'ordered_containment', interfaces.IRelationshipListContainer,
+    ...     package['ordered_containment_relationship'])
     >>> key = package.registrationManager.addRegistration(registration)
     >>> import zope.app.component.interfaces.registration
     >>> registration.status = (
@@ -79,48 +51,46 @@ specify it here by hand.
     >>> import transaction
     >>> transaction.commit()
 
-Adding relationships is also easy: instantiate and add.  The `add` method adds
-objects and assigns them random alphanumeric keys.
+Adding relationships is also easy: instantiate and add to the list using any
+standard list method.
 
     >>> rel = Relationship((app['ob0'],), (app['ob1'],))
     >>> verifyObject(interfaces.IRelationship, rel)
     True
-    >>> container.add(rel)
+    >>> container.append(rel)
 
-Although the container does not have `__setitem__` and `__delitem__` (defining
-`add` and `remove` instead), it does define the read-only elements of the basic
-Python mapping interface.
+The relation now has 'super' and '__parent__' set to the list container, and
+'next' and 'previous' set to None.
 
-    >>> container[rel.__name__] is rel
+    >>> rel.super is rel.__parent__ is container
+    True
+    >>> rel.next is rel.previous is None
+    True
+
+The list container defines the standard elements Python list interface.  For
+instance, here are some read-only examples,
+
+    >>> container[0] is rel
     True
     >>> len(container)
     1
-    >>> list(container.keys()) == [rel.__name__]
+    >>> list(container) == [rel]
     True
-    >>> list(container) == [rel.__name__]
-    True
-    >>> list(container.values()) == [rel]
-    True
-    >>> container.get(rel.__name__) is rel
-    True
-    >>> container.get(17) is None
-    True
-    >>> rel.__name__ in container
+    >>> rel in container
     True
     >>> 17 in container
     False
-    >>> list(container.items()) == [(rel.__name__, rel)]
-    True
 
 It also supports four searching methods: `findTargets`, `findSources`,
 `findRelationships`, and `isLinked`.  Let's add a few more relationships and
 examine some relatively simple cases.
 
-    >>> container.add(Relationship((app['ob1'],), (app['ob2'],)))
-    >>> container.add(Relationship((app['ob1'],), (app['ob3'],)))
-    >>> container.add(Relationship((app['ob0'],), (app['ob3'],)))
-    >>> container.add(Relationship((app['ob0'],), (app['ob4'],)))
-    >>> container.add(Relationship((app['ob2'],), (app['ob5'],)))
+    >>> container.extend((
+    ...     Relationship((app['ob1'],), (app['ob2'],)),
+    ...     Relationship((app['ob1'],), (app['ob3'],)),
+    ...     Relationship((app['ob0'],), (app['ob3'],)),
+    ...     Relationship((app['ob0'],), (app['ob4'],)),
+    ...     Relationship((app['ob2'],), (app['ob5'],))))
     >>> transaction.commit() # this is indicative of a bug in ZODB; if you
     ... # do not do this then new objects will deactivate themselves into
     ... # nothingness when _p_deactivate is called
@@ -136,22 +106,17 @@ in the diagram):
       |
     ob5
 
-The mapping methods still have kept up with the new additions.
+The relationships are in the order they were added, with next and previous
+pointers.
 
+    >>> rel.next.targets[0] is app['ob2']
+    True
+    >>> container[5].next is None
+    True
+    >>> container[5].previous.targets[0] is app['ob4']
+    True
     >>> len(container)
     6
-    >>> len(container.keys())
-    6
-    >>> sorted(container.keys()) == sorted(
-    ...     v.__name__ for v in container.values())
-    True
-    >>> sorted(container.items()) == sorted(
-    ...     zip(container.keys(), container.values()))
-    True
-    >>> len([v for v in container.values() if container[v.__name__] is v])
-    6
-    >>> sorted(container.keys()) == sorted(container)
-    True
 
 More interestingly, lets examine some of the searching methods.  What are the
 direct targets of ob0?
@@ -189,7 +154,7 @@ ob1 and look at the results.
 An important aspect of the algorithm used is that it returns closer
 relationships first, which we can begin to see here.
 
-    >>> container.add(Relationship((app['ob5'],), (app['ob1'],)))
+    >>> container.append(Relationship((app['ob5'],), (app['ob1'],)))
     >>> transaction.commit()
     >>> sorted(o.id for o in container.findTargets(app['ob0'], None))
     ['ob1', 'ob2', 'ob3', 'ob4', 'ob5']
@@ -514,8 +479,7 @@ As usual, maxDepth must be a positive integer or None.
     ...
     ValueError: ...
 
-The `remove` method is the next to last of the core interface: it allows you
-to remove relationships from a container.  It takes a relationship object.
+The various listcontainer methods let you remove and rearrange relationships.
 
 As an example, let's remove the relationship from ob5 to ob1 that we created
 to make the cycle.
@@ -747,10 +711,10 @@ approaches to this are possible, but a simple one is to allow relationships to
 have multiple sources and multiple targets.  This is an approach that the
 relationship container supports.
 
-    >>> container.add(Relationship(
+    >>> container.append(Relationship(
     ...     (app['ob2'], app['ob4'], app['ob5'], app['ob6'], app['ob7']),
     ...     (app['ob1'], app['ob4'], app['ob8'], app['ob9'], app['ob10'])))
-    >>> container.add(Relationship(
+    >>> container.append(Relationship(
     ...     (app['ob10'], app['ob0']),
     ...     (app['ob7'], app['ob3'])))
 
@@ -790,27 +754,3 @@ marked as a cycle.
        (<Demo ob1>, <Demo ob4>, <Demo ob8>, <Demo ob9>, <Demo ob10>)>,)]
     >>> list(container.findRelationships(app['ob4'], app['ob4']))[0].cycled
     [{'source': <Demo ob4>}]
-
-Relating Relationships and Relationship Containers
---------------------------------------------------
-
-Relationships are objects.  We've already shown and discused how this means
-that they can implement different interfaces and be annotated.  It also means
-that relationships are first-class objects that can be related themselves.
-This allows relationships that keep track of who created other relationships,
-and other use cases.
-
-Even the relationship containers themselves can be nodes in a relationship
-container.
-
-Exposing Unresolved Tokens
---------------------------
-
-For specialized use cases, usually optimizations, sometimes it is useful to
-have access to raw results from a given implementation.  For instance, if a
-relationship has many members, it might make sense to have an intid-based
-relationship container return the actual intids.
-
-The containers include three methods for these sorts of use cases:
-`findTargetTokens`, `findSourceTokens`, and `findRelationshipTokens`.  They
-take the same arguments as their simlarly-named cousins.
