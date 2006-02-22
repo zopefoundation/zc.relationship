@@ -93,9 +93,14 @@ def tearDown(test):
 def test_suite():
     return unittest.TestSuite((
         doctest.DocFileSuite(
-            'README.txt', setUp=keyrefSetUp, tearDown=tearDown),
+            'README.txt',
+            setUp=placelesssetup.setUp, tearDown=placelesssetup.tearDown),
         doctest.DocFileSuite(
-            'README.txt', setUp=intidSetUp, tearDown=tearDown),
+            'container.txt', setUp=keyrefSetUp, tearDown=tearDown),
+        doctest.DocFileSuite(
+            'container.txt', setUp=intidSetUp, tearDown=tearDown),
+        doctest.DocFileSuite(
+            'listcontainer.txt', setUp=intidSetUp, tearDown=tearDown),
         ))
 
 if __name__ == '__main__':

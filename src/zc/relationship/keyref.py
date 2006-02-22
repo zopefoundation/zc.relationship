@@ -16,26 +16,29 @@
 $Id$
 """
 from zope import interface
-from BTrees import OOBTree
+from BTrees import IOBTree, OOBTree, OIBTree, IIBTree
 
 from zope.app.keyreference.interfaces import IKeyReference
 
 from zc.relationship import interfaces, shared
 
-class Container(shared.AbstractContainer):
-    interface.implements(interfaces.IKeyReferenceRelationshipContainer)
+def generateObjToken(ob, index, cache, **kwargs):
+    return IKeyReference(ob)
 
-    def _index_factory(self):
-        return OOBTree.OOBTree()
+def resolveObjToken(token, index, cache, **kwargs):
+    return token()
 
-    def _set_factory(self, *args):
-        return OOBTree.OOTreeSet(*args)
+def generateRelToken(ob, index, cache, **kwargs):
+    return ob.__name__
 
-    def _set_difference(self, set1, set2):
-        return OOBTree.difference(set1, set2)
+def resolveRelToken(token, index, cache, **kwargs):
+    return index.__parent__[token]
 
-    def _generate_token(self, ob, cache, **kwargs):
-        return IKeyReference(ob)
-
-    def _resolve_token(self, token, cache, **kwargs):
-        return token()
+def Container():
+    res = shared.Container(
+        generateObjToken, resolveObjToken, generateRelToken, resolveRelToken,
+        objSetFactory=OOBTree.OOTreeSet, objDiff=OOBTree.difference,
+        objUnion=OOBTree.union, relSetFactory=OOBTree.OOTreeSet,
+        relIntersection=OOBTree.intersection, relUnion=OOBTree.union)
+    interface.alsoProvides(res, interfaces.IKeyReferenceRelationshipContainer)
+    return res

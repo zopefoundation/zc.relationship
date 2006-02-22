@@ -15,5 +15,6 @@
 
 $Id$
 """
+from zc.relationship.index import Index
 from zc.relationship.shared import Relationship
 from zc.relationship.intid import Container
