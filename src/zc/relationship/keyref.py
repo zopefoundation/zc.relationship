@@ -36,9 +36,8 @@ def resolveRelToken(token, index, cache, **kwargs):
 
 def Container():
     res = shared.Container(
-        generateObjToken, resolveObjToken, generateRelToken, resolveRelToken,
-        objSetFactory=OOBTree.OOTreeSet, objDiff=OOBTree.difference,
-        objUnion=OOBTree.union, relSetFactory=OOBTree.OOTreeSet,
-        relIntersection=OOBTree.intersection, relUnion=OOBTree.union)
+        generateObjToken, resolveObjToken, OOBTree,
+        dumpRel=generateRelToken, loadRel=resolveRelToken,
+        relFamily=OOBTree)
     interface.alsoProvides(res, interfaces.IKeyReferenceRelationshipContainer)
     return res

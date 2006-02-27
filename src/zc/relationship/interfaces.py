@@ -49,51 +49,54 @@ class IIndex(zope.index.interfaces.IInjection,
         '''the standard way for the index to determine transitive queries.
         Must implement ITransitiveQueriesFactory, or be None''')
 
-    def tokenizeQuery(query):
-        '''Given a dictionary of {indexName: object} returns a dictionary of
-        {indexname: token} appropriate for the search methods'''
+    def index(relationship):
+        """obtains the token for the relationship and indexes (calls
+        IInjection.index_doc)"""
 
-    def getTokensForRelationshipName(reltoken, name):
-        "return BTree set or None... XXX"
+    def unindex(relationship):
+        """obtains the token for the relationship and unindexes (calls
+        IInjection.unindex_doc)"""
+
+    def findValueTokens(resultName, query, maxDepth=None, filter=None,
+                        targetQuery=None, targetFilter=None,
+                        transitiveQueriesFactory=None):
+        """find token results for searchTerms.
+        - resultName is the index name wanted for results.
+        Otherwise, same arguments as findRelationshipChains.
+        """
+
+    def findValues(resultName, query, maxDepth=None, filter=None,
+                   targetQuery=None, targetFilter=None,
+                   transitiveQueriesFactory=None):
+        """Like findValueTokens, but resolves value tokens"""
+
+    def findRelationshipTokenChains(query, maxDepth=None, filter=None,
+                                    targetQuery=None, targetFilter=None,
+                                    transitiveQueriesFactory=None):
+        """find tuples of relationship tokens for searchTerms.
+        - query is a dictionary of {indexName: token}
+        - maxDepth is None or a positive integer that specifies maximum depth
+          for transitive results.  None means that the transitiveMap will be
+          followed until a cycle is detected.  It is a ValueError to provide a
+          non-None depth if transitiveQueriesFactory is None and
+          index.defaultTransitiveQueriesFactory is None.
+        - filter is a an optional callable providing IFilter that determines
+          whether relationships will be traversed at all.
+        - targetQuery is an optional query that specifies that only paths with
+          final relationships that match the targetQuery should be returned.
+          It represents a useful subset of the jobs that can be done with the
+          targetFilter.
+        - targetFilter is an optional callable providing IFilter that
+          determines whether a given path will be included in results (it will
+          still be traversed)
+        - optional transitiveQueriesFactory takes the place of the index's
+          defaultTransitiveQueriesFactory
+        """
 
     def findRelationshipChains(query, maxDepth=None, filter=None,
                                targetQuery=None, targetFilter=None,
                                transitiveQueriesFactory=None):
-        """find tuples of relationship tokens for searchTerms.
-        - query is a dictionary of {indexName: token}
-        - targetQuery is an optional query that specifies that only results
-        from relationships that match the targetQuery should be returned.  It
-        represents a useful subset of the jobs that can be done with the
-        targetFilter.
-        - maxDepth is None or a positive integer that specifies maximum depth
-        for transitive results.  None means that the transitiveMap will be
-        followed until a cycle is detected.  It is a ValueError to provide a
-        non-None depth if transitiveQueriesFactory is None and
-        index.defaultTransitiveQueriesFactory is None.
-        - transitiveFilter is a an optional callable providing
-        ITransitiveFilter
-        - targetFilter is an optional callable providing targetFilter
-        - optional transitiveQueriesFactory takes the place of the index's
-        defaultTransitiveQueriesFactory
-        
-        The algorithm for using the arguments is this:
-        - find relationships that match query
-        - for each one,
-          * if the filter is defined and rejects the relationship,
-            continue loop to next relationship (skipping the rest, below).
-          * if there is a transitiveQueriesFactory for this query or for the
-            index, iterate the queries.  For each query, get the relationships
-            that match it.  If any of the query's relationships repeat a query
-            earlier in the chain, remember the search as generating a cycle.
-            Otherwise, if current depth <= max depth, remember the
-            results.  After all the relationships have been processed, add the
-            list to the TODO list (the stack) for the process.
-          * if the targetQuery is None or matches the current relationship, and
-            the targetFilter is None or accepts this relationship, yield
-            a tuple if there were no cycles, or an ICircularRelationshipPath
-            otherwise.
-          (Continue working on TODO stack)
-        """
+        "Like findRelationshipTokenChains, but resolves relationship tokens"
 
     def isLinked(query, maxDepth=None, filter=None, targetQuery=None,
                  targetFilter=None, transitiveQueriesFactory=None):
@@ -102,30 +105,45 @@ class IIndex(zope.index.interfaces.IInjection,
         Same arguments as findRelationshipChains.
         
         The general algorithm for using the arguments is this:
-        try to yield a single chain from findRelationshipChains with the
+        try to yield a single chain from findRelationshipTokenChains with the
         given arguments.  If one can be found, return True, else False."""
 
-    def findValues(resultName, query, maxDepth=None, filter=None,
-                   targetQuery=None, targetFilter=None,
-                   transitiveQueriesFactory=None):
-        """find token results for searchTerms.
-        - resultName is the index name wanted for results.
-        Otherwise, same arguments as findRelationshipChains.
-        
-        The general algorithm for using the arguments is this:
-        - find relationships that match query
-        - for each one,
-          * if the filter is defined and rejects the relationship, or if the
-            relationship has been seen before, continue loop to next
-            relationship (skipping the rest, below).
-          * if the targetQuery is None or matches the current relationship, and
-            the targetFilter is None or accepts this relationship, find all the
-            results for the current relationship.  For each one that hasn't
-            been seen before, yield it.
-          * if there is a transitiveQueriesFactory for this query or for the
-            index, and current depth <= max depth, iterate the queries.
-            For each query, if it hasn't been seen before, get the
-            relationships that match it, and add them to the TODO list.
+    def tokenizeQuery(query):
+        '''Given a dictionary of {indexName: value} returns a dictionary of
+        {indexname: token} appropriate for the search methods'''
+
+    def resolveQuery(query):
+        '''Given a dictionary of {indexName: token} returns a dictionary of
+        {indexname: value}'''
+
+    def tokenizeValues(values, name):
+        """Returns an iterable of tokens for the values of the given index
+        name"""
+
+    def resolveValueTokens(tokens, name):
+        """Returns an iterable of values for the tokens of the given index
+        name"""
+
+    def tokenizeRelationship(rel):
+        """Returns a token for the given relationship"""
+
+    def resolveRelationshipToken(token):
+        """Returns a relationship for the given token"""
+
+    def tokenizeRelationships(rels):
+        """Returns an iterable of tokens for the relations given"""
+
+    def resolveRelationshipTokens(tokens):
+        """Returns an iterable of relations for the tokens given"""
+
+    def findRelationshipTokenSets(query):
+        """Given a single dictionary of {indexName: token}, return a set (based
+        on the btree family for relationships in the index) of relationship
+        tokens that match it.  Intransitive."""
+
+    def findValueTokenSets(reltoken, name):
+        """Given a relationship token and a value name, return a set (based on
+        the btree family for the value) of value tokens for that relationship.
         """
 
 class IRelationship(interface.Interface):

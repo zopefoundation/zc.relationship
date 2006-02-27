@@ -182,7 +182,8 @@ class ResolvingFilter(object):
         self.container = container
 
     def __call__(self, relchain, query, index, cache):
-        obj = self.container.resolveRelToken(relchain[-1], index, cache)
+        obj = self.container.relationIndex.resolveRelationshipToken(
+            relchain[-1])
         return self.filter(obj)
 
 def minDepthFilter(depth):
@@ -194,49 +195,57 @@ def minDepthFilter(depth):
 
 class AbstractContainer(persistent.Persistent):
     def __init__(self,
-        generateObjToken, resolveObjToken, generateRelToken, resolveRelToken,
+        dumpSource=None, loadSource=None, sourceFamily=None,
+        dumpTarget=None, loadTarget=None, targetFamily=None,
         **kwargs):
+        source = {'element': interfaces.IRelationship['sources'],
+                  'name': 'source', 'multiple': True}
+        target = {'element': interfaces.IRelationship['targets'],
+                  'name': 'target', 'multiple': True}
+        if dumpSource is not None:
+            target['dump'] = source['dump'] = dumpSource
+        if loadSource is not None:
+            target['load'] = source['load'] = loadSource
+        if sourceFamily is not None:
+            target['btree'] = source['btree'] = sourceFamily
+        if dumpTarget is not None:
+            target['dump'] = dumpTarget
+        if loadTarget is not None:
+            target['load'] = loadTarget
+        if targetFamily is not None:
+            target['btree'] = targetFamily
+        
         ix = index.Index(
-            ({'element': interfaces.IRelationship['sources'],
-              'name': 'source'},
-             {'element': interfaces.IRelationship['targets'],
-              'name': 'target'}),
-            generateObjToken,
+            (source, target),
             index.TransposingTransitiveQueriesFactory('source', 'target'),
             **kwargs)
         self.relationIndex = ix
         ix.__parent__ = self
-        self.resolveObjToken = resolveObjToken
-        self.resolveRelToken = resolveRelToken
-        self.generateRelToken = generateRelToken
 
     def reindex(self, object):
         assert object.__parent__ is self
-        self.relationIndex.index_doc(
-            self.generateRelToken(object, self.relationIndex, {}), object)
-
-    def _resolveObjTokens(self, iterable):
-        resolveObjToken = index.partial(
-            self.resolveObjToken, index=self.relationIndex, cache={})
-        for t in iterable:
-            yield resolveObjToken(t)
+        self.relationIndex.index(object)
 
     def findTargets(self, source, maxDepth=1, minDepth=None, filter=None):
-        return self._resolveObjTokens(
-            self.findTargetTokens(source, maxDepth, minDepth, filter))
-
-    def findSources(self, target, maxDepth=1, minDepth=None, filter=None):
-        return self._resolveObjTokens(
-            self.findSourceTokens(target, maxDepth, minDepth, filter))
-
-    def findTargetTokens(self, source, maxDepth=1, minDepth=None, filter=None):
         return self.relationIndex.findValues(
             'target', self.relationIndex.tokenizeQuery({'source': source}),
             maxDepth, filter and ResolvingFilter(filter, self),
             targetFilter=minDepthFilter(minDepth))
 
-    def findSourceTokens(self, target, maxDepth=1, minDepth=None, filter=None):
+    def findSources(self, target, maxDepth=1, minDepth=None, filter=None):
         return self.relationIndex.findValues(
+            'source', self.relationIndex.tokenizeQuery({'target': target}),
+            maxDepth, filter and ResolvingFilter(filter, self),
+            targetFilter=minDepthFilter(minDepth))
+
+    def findTargetTokens(self, source, maxDepth=1, minDepth=None, filter=None):
+        return self.relationIndex.findValueTokens(
+            'target', self.relationIndex.tokenizeQuery({'source': source}),
+            maxDepth, filter and ResolvingFilter(filter, self),
+            targetFilter=minDepthFilter(minDepth))
+
+    def findSourceTokens(self, target, maxDepth=1, minDepth=None, filter=None):
+        return self.relationIndex.findValueTokens(
             'source', self.relationIndex.tokenizeQuery({'target': target}),
             maxDepth, filter and ResolvingFilter(filter, self),
             targetFilter=minDepthFilter(minDepth))
@@ -260,26 +269,20 @@ class AbstractContainer(persistent.Persistent):
                 'at least one of `source` and `target` must be provided')
 
     def _reverse(self, iterable):
-        resolveObjToken = index.partial(
-            self.resolveObjToken, index=self.relationIndex, cache={})
         for i in iterable:
             if interfaces.ICircularRelationshipPath.providedBy(i):
                 yield index.CircularRelationshipPath(
                     reversed(i),
-                    [dict((k, resolveObjToken(v)) for k, v in search.items())
-                     for search in i.cycled])
+                    [self.relationIndex.resolveQuery(d) for d in i.cycled])
             else:
                 yield tuple(reversed(i))
 
     def _forward(self, iterable):
-        resolveObjToken = index.partial(
-            self.resolveObjToken, index=self.relationIndex, cache={})
         for i in iterable:
             if interfaces.ICircularRelationshipPath.providedBy(i):
                 yield index.CircularRelationshipPath(
                     i,
-                    [dict((k, resolveObjToken(v)) for k, v in search.items())
-                     for search in i.cycled])
+                    [self.relationIndex.resolveQuery(d) for d in i.cycled])
             else:
                 yield i
 
@@ -287,14 +290,14 @@ class AbstractContainer(persistent.Persistent):
                                minDepth=None, filter=None):
         tokenize = self.relationIndex.tokenizeQuery
         if source is not None:
-            res = self.relationIndex.findRelationshipChains(
+            res = self.relationIndex.findRelationshipTokenChains(
                 tokenize({'source': source}),
                 maxDepth, filter and ResolvingFilter(filter, self),
                 target and tokenize({'target': target}),
                 targetFilter=minDepthFilter(minDepth))
             return self._forward(res)
         elif target is not None:
-            res = self.relationIndex.findRelationshipChains(
+            res = self.relationIndex.findRelationshipTokenChains(
                 tokenize({'target': target}),
                 maxDepth, filter and ResolvingFilter(filter, self),
                 targetFilter=minDepthFilter(minDepth))
@@ -304,10 +307,8 @@ class AbstractContainer(persistent.Persistent):
                 'at least one of `source` and `target` must be provided')
 
     def _resolveRelationshipChains(self, iterable):
-        resolveRelToken = index.partial(
-            self.resolveRelToken, index=self.relationIndex, cache={})
         for i in iterable:
-            chain = (resolveRelToken(t) for t in i)
+            chain = tuple(self.relationIndex.resolveRelationshipTokens(i))
             if interfaces.ICircularRelationshipPath.providedBy(i):
                 yield index.CircularRelationshipPath(chain, i.cycled)
             else:
@@ -337,84 +338,16 @@ class Container(AbstractContainer, zope.app.container.btree.BTreeContainer):
         while key in self._SampleContainer__data:
             key = self._generate_id(object)
         super(AbstractContainer, self).__setitem__(key, object)
-        self.relationIndex.index_doc(
-            self.generateRelToken(object, self.relationIndex, {}), object)
+        self.relationIndex.index(object)
 
     def remove(self, object):
-        token = self.generateRelToken(object, self.relationIndex, {})
         key = object.__name__
         if self[key] is not object:
             raise ValueError("Relationship is not stored as its __name__")
+        self.relationIndex.unindex(object)
         super(AbstractContainer, self).__delitem__(key)
-        self.relationIndex.unindex_doc(token)
 
     @property
     def __setitem__(self):
         raise AttributeError
     __delitem__ = __setitem__
-
-try:
-    import zc.listcontainer
-except ImportError:
-    pass
-else:
-    class ListContainer(
-        AbstractContainer,
-        zc.listcontainer.ListContainer,
-        zope.app.container.contained.Contained):
-
-        def __init__(self, *args, **kwargs):
-            AbstractContainer.__init__(self, *args, **kwargs)
-            zc.listcontainer.ListContainer.__init__(self)
-    
-        def _after_add(
-            self, item, oldSuper, oldPrevious, oldNext, super_, previous, next):
-            res = super(ListContainer, self)._after_add(
-                item, oldSuper, oldPrevious, oldNext, super_, previous, next)
-            item.__parent__ = self
-            self.relationIndex.index_doc(
-                self.generateRelToken(item, self.relationIndex, {}), item)
-            return res
-
-        def _after_multi_add(self, items, previous, next, i):
-            res = super(ListContainer, self)._after_multi_add(
-                items, previous, next, i)
-            for item in items:
-                item.__parent__ = self
-                self.relationIndex.index_doc(
-                    self.generateRelToken(item, self.relationIndex, {}), item)
-            return res
-
-        def movereplace(self, i, item):
-            try:
-                current = self[i]
-            except IndexError:
-                current = None
-            super(ListContainer, self).movereplace(i, item)
-            if current is not None and current.super is not self:
-                self.relationIndex.unindex_doc(
-                    self.generateRelToken(current, self.relationIndex, {}))
-
-        def pop(self, i=-1):
-            try:
-                current = self[i]
-            except IndexError:
-                pass # let the super call raise the right error
-            else:
-                self.relationIndex.unindex_doc(
-                    self.generateRelToken(current, self.relationIndex, {}))
-            super(ListContainer, self).pop(i)
-
-        def __delslice__(self, i, j): # don't support step
-            old = self[i:j]
-            super(ListContainer, self).__delslice__(i, j)
-            if old:
-                for item in old:
-                    self.relationIndex.unindex_doc(
-                        self.generateRelToken(item, self.relationIndex, {}))
-
-        def silentpop(self, i=-1):
-            res = super(ListContainer, self).silentpop(i)
-            self.relationIndex.unindex_doc(
-                self.generateRelToken(res, self.relationIndex, {}))
-            return res

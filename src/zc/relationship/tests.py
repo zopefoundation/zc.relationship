@@ -17,6 +17,7 @@ $Id$
 """
 import unittest
 from zope.testing import doctest
+import zope.testing.module
 
 # these are used by setup
 import transaction
@@ -90,27 +91,24 @@ def tearDown(test):
     test.globs['db'].close()
     placelesssetup.tearDown()
 
-try:
-    import zc.listcontainer
-except ImportError:
-    has_listcontainer = False
-else:
-    has_listcontainer = True
+def READMESetUp(test):
+    intidSetUp(test)
+    zope.testing.module.setUp(test, 'zc.relationship.README')
+
+def READMETearDown(test):
+    tearDown(test)
+    zope.testing.module.tearDown(test)
 
 def test_suite():
     res = unittest.TestSuite((
         doctest.DocFileSuite(
             'README.txt',
-            setUp=placelesssetup.setUp, tearDown=placelesssetup.tearDown),
+            setUp=READMESetUp, tearDown=READMETearDown),
         doctest.DocFileSuite(
             'container.txt', setUp=keyrefSetUp, tearDown=tearDown),
         doctest.DocFileSuite(
             'container.txt', setUp=intidSetUp, tearDown=tearDown),
         ))
-    if has_listcontainer:
-        res.addTest(doctest.DocFileSuite(
-            'listcontainer.txt', setUp=intidSetUp, tearDown=tearDown,
-            globs={'ListContainer': intid.ListContainer}))
     return res
 
 if __name__ == '__main__':

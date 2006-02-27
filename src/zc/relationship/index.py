@@ -18,11 +18,12 @@ except ImportError:
 
 import persistent
 import persistent.interfaces
-from BTrees import OOBTree, IFBTree, Length
+from BTrees import OOBTree, IFBTree, IOBTree, Length
 
-from zope import interface
+from zope import interface, component
 import zope.interface.interfaces
-import zope.index.interfaces
+from zope.app.intid.interfaces import IIntIds
+import zope.app.container.contained
 
 from zc.relationship import interfaces
 
@@ -70,17 +71,47 @@ class TransposingTransitiveQueriesFactory(persistent.Persistent):
         else:
             static = cache['static']
         if dynamic:
-            for r in index.getTokensForRelationshipName(relchain[-1],
-                                                        dynamic[1], ()):
+            for r in index.findValueTokenSets(relchain[-1], dynamic[1]):
                 res = {dynamic[0]: r}
                 res.update(static)
                 yield res
 
 ##############################################################################
-# the relationship index
-#
+# a common case intid getter and setter
 
-class Index(persistent.Persistent):
+def generateToken(obj, index, cache):
+    intids = cache.get('intids')
+    if intids is None:
+        intids = cache['intids'] = component.getUtility(
+            IIntIds, context=index)
+    return intids.register(obj)
+
+def resolveToken(token, index, cache):
+    intids = cache.get('intids')
+    if intids is None:
+        intids = cache['intids'] = component.getUtility(
+            IIntIds, context=index)
+    return intids.getObject(token)
+
+##############################################################################
+# the relationship index
+
+def getTreeSet(module):
+    for nm in dir(module):
+        if nm.endswith('TreeSet'):
+            return getattr(module, nm)
+    raise ValueError('No TreeSet found in module')
+
+def getModuleTools(module):
+    res = {}
+    res['TreeSet'] = getTreeSet(module)
+    res['diff'] = module.difference
+    res['union'] = module.union
+    res['intersect'] = module.intersection
+    res['multiunion'] = getattr(module, 'multiunion', None)
+    return res
+
+class Index(persistent.Persistent, zope.app.container.contained.Contained):
     interface.implements(interfaces.IIndex)
 
     def _deactivate(self, ob):
@@ -88,51 +119,57 @@ class Index(persistent.Persistent):
             persistent.interfaces.IPersistent.providedBy(ob)):
             ob._p_deactivate()
 
-    def __init__(self, attrs, generateObjToken,
-                 defaultTransitiveQueriesFactory=None,
-                 objSetFactory=IFBTree.IFTreeSet, objDiff=IFBTree.difference,
-                 objUnion=IFBTree.union, relSetFactory=IFBTree.IFTreeSet,
-                 relIntersection=IFBTree.intersection, relUnion=IFBTree.union,
-                 deactivateSets=True):
-        self._objtoken_name_TO_relcount_relset = OOBTree.OOBTree()
+    def __init__(self, attrs, defaultTransitiveQueriesFactory=None,
+                 dumpRel=generateToken, loadRel=resolveToken,
+                 relFamily=IFBTree, deactivateSets=False):
+        self._name_TO_mapping = OOBTree.OOBTree()
+        # held mappings are objtoken to (relcount, relset)
         self._EMPTY_name_TO_relcount_relset = OOBTree.OOBTree()
         self._reltoken_name_TO_objtokenset = OOBTree.OOBTree()
         self.defaultTransitiveQueriesFactory = defaultTransitiveQueriesFactory
-        self._objSetFactory = objSetFactory
-        self._relSetFactory = relSetFactory
-        self.generateObjToken = generateObjToken
-        self._objDiff = objDiff
-        self._objUnion = objUnion
-        self._relIntersection = relIntersection
-        self._relUnion = relUnion
-        self._relTokens = relSetFactory()
+        self._relTools = getModuleTools(relFamily)
+        self._relTools['load'] = loadRel
+        self._relTools['dump'] = dumpRel
         self._relLength = Length.Length()
-        _attrs = {}
+        self._relTokens = self._relTools['TreeSet']()
+        self.deactivateSets = deactivateSets
+        self._attrs = _attrs = {} # this is private, and it's not expected to
+        # mutate after this initial setting.
         seen = set()
         for data in attrs:
-            val = data['element']
-            attrname = val.__name__
-            name = data.get('name', attrname)
-            iface = val.interface
-            multiBool = not data.get('single', False)
-            callBool = zope.interface.interfaces.IMethod.providedBy(val)
-            if name in _attrs or (iface, attrname) in seen:
-                raise ValueError('Duplicate in attrs', name, iface, attrname)
-            seen.add((iface, attrname))
-            _attrs[name] = (name, iface, attrname, callBool, multiBool)
-        self._attrs = _attrs
-        self.deactivateSets = deactivateSets
+            # see README.txt for description of attrs.
+            if zope.interface.interfaces.IElement.providedBy(data):
+                data = {'element': data}
+            res = getModuleTools(data.get('btree', IFBTree))
+            res['element'] = val = data['element']
+            res['attrname'] = val.__name__
+            res['name'] = data.get('name', res['attrname'])
+            if res['name'] in _attrs or val in seen:
+                raise ValueError('Duplicate in attrs', name, val)
+            seen.add(val)
+            _attrs[res['name']] = res
+            res['dump'] = data.get('dump', generateToken)
+            res['load'] = data.get('load', resolveToken)
+            res['interface'] = val.interface
+            res['multiple'] = data.get('multiple', False)
+            res['call'] = zope.interface.interfaces.IMethod.providedBy(val)
+            if res['TreeSet'].__name__.startswith('I'):
+                Mapping = IOBTree.IOBTree
+            else:
+                assert res['TreeSet'].__name__.startswith('O')
+                Mapping = OOBTree.OOBTree
+            self._name_TO_mapping[res['name']] = Mapping()
+            # these are objtoken to (relcount, relset)
 
-    def _getValuesAndTokens(self, rel, name, generateToken):
-        name, iface, attrname, callBool, multiBool = self._attrs[name]
-        valueSource = iface(rel, None)
+    def _getValuesAndTokens(self, rel, data):
+        valueSource = data['interface'](rel, None)
         if valueSource is not None:
-            values = getattr(valueSource, attrname)
-            if callBool:
+            values = getattr(valueSource, data['attrname'])
+            if data['call']:
                 values = values()
-            if not multiBool:
-                if values is not None: # None is a marker for no value
-                    values = (values,)
+            if not data['multiple'] and values is not None:
+                # None is a marker for no value
+                values = (values,)
             elif not values:
                 values = None
         else:
@@ -140,8 +177,9 @@ class Index(persistent.Persistent):
         if values is None:
             return values, values
         else:
-            return values, self._objSetFactory(
-                generateToken(o) for o in values)
+            cache = {}
+            return values, data['TreeSet'](
+                data['dump'](o, self, cache) for o in values)
 
     def _add(self, relToken, tokens, name, fullTokens):
         self._reltoken_name_TO_objtokenset[(relToken, name)] = fullTokens
@@ -149,12 +187,13 @@ class Index(persistent.Persistent):
             dataset = self._EMPTY_name_TO_relcount_relset
             keys = (name,)
         else:
-            dataset = self._objtoken_name_TO_relcount_relset
-            keys = ((token, name) for token in tokens)
+            dataset = self._name_TO_mapping[name]
+            keys = tokens
         for key in keys:
             data = dataset.get(key)
             if data is None:
-                data = dataset[key] = (Length.Length(), self._relSetFactory())
+                data = dataset[key] = (
+                    Length.Length(), self._relTools['TreeSet']())
             res = data[1].insert(relToken)
             assert res, 'Internal error: relToken existed in data'
             data[0].change(1)
@@ -164,8 +203,8 @@ class Index(persistent.Persistent):
             dataset = self._EMPTY_name_TO_relcount_relset
             keys = (name,)
         else:
-            dataset = self._objtoken_name_TO_relcount_relset
-            keys = ((token, name) for token in tokens)
+            dataset = self._name_TO_mapping[name]
+            keys = tokens
         for key in keys:
             data = dataset[key]
             data[1].remove(relToken)
@@ -175,44 +214,43 @@ class Index(persistent.Persistent):
             else:
                 assert data[0].value > 0
 
+    def index(self, rel):
+        self.index_doc(self._relTools['dump'](rel, self, {}), rel)
+
     def index_doc(self, relToken, rel):
-        generateToken = partial(self.generateObjToken, index=self, cache={})
         if relToken in self._relTokens:
             # reindex
-            for name, iface, attrname, callBool, multiBool in (
-                self._attrs.values()):
-                assert self._reltoken_name_TO_objtokenset.get(
-                    (relToken, name), self) is not self, (
-                    'relationship not indexed')
-                values, newTokens = self._getValuesAndTokens(
-                    rel, name, generateToken)
+            for data in self._attrs.values():
+                values, newTokens = self._getValuesAndTokens(rel, data)
                 oldTokens = self._reltoken_name_TO_objtokenset[
-                    (relToken, name)]
+                    (relToken, data['name'])]
                 if newTokens != oldTokens:
                     if newTokens is not None and oldTokens is not None:
-                        added = self._objDiff(newTokens, oldTokens)
-                        removed = self._objDiff(oldTokens, newTokens)
+                        added = data['diff'](newTokens, oldTokens)
+                        removed = data['diff'](oldTokens, newTokens)
                     else:
                         removed = oldTokens
                         added = newTokens
-                    self._remove(relToken, removed, name)
-                    self._add(relToken, added, name, newTokens)
+                    self._remove(relToken, removed, data['name'])
+                    self._add(relToken, added, data['name'], newTokens)
         else:
             # new
-            for name, iface, attrname, callBool, multiBool in (
-                self._attrs.values()):
+            for data in self._attrs.values():
                 assert self._reltoken_name_TO_objtokenset.get(
-                    (relToken, name), self) is self
-                values, tokens = self._getValuesAndTokens(
-                    rel, name, generateToken)
-                self._add(relToken, tokens, name, tokens)
+                    (relToken, data['name']), self) is self
+                values, tokens = self._getValuesAndTokens(rel, data)
+                self._add(relToken, tokens, data['name'], tokens)
             self._relTokens.insert(relToken)
             self._relLength.change(1)
 
+    def unindex(self, rel):
+        self.unindex_doc(self._relTools['dump'](rel, self, {}))
+
     def unindex_doc(self, relToken):
-        for name, iface, attrname, callBool, multiBool in self._attrs.values():
-            tokens = self._reltoken_name_TO_objtokenset.pop((relToken, name))
-            self._remove(relToken, tokens, name)
+        for data in self._attrs.values():
+            tokens = self._reltoken_name_TO_objtokenset.pop(
+                (relToken, data['name']))
+            self._remove(relToken, tokens, data['name'])
         self._relTokens.remove(relToken)
         self._relLength.change(-1)
 
@@ -225,9 +263,10 @@ class Index(persistent.Persistent):
         # right for very questionable benefit
 
     def clear(self):
-        self._reltoken_name_TO_objtokenset.clear()
-        self._objtoken_name_TO_relcount_relset.clear()
+        for v in self._name_TO_mapping.values():
+            v.clear()
         self._EMPTY_name_TO_relcount_relset.clear()
+        self._reltoken_name_TO_objtokenset.clear()
         self._relTokens.clear()
         self._relLength.set(0)
 
@@ -237,47 +276,90 @@ class Index(persistent.Persistent):
             raise ValueError('one key in the primary query dictionary')
         (searchType, query) = query.items()[0]
         if searchType=='relationships':
+            if self._relTools['TreeSet'] is not IFBTree.IFTreeSet:
+                raise ValueError(
+                    'cannot fulfill `apply` interface because cannot return '
+                    'an IFBTree-based result')
             res = self._relData(query)
             if res is None:
-                res = self.objSetFactory()
+                res = self._relTools['TreeSet']()
             return res
         elif searchType=='values':
-            if query['resultName'] not in self._attrs:
-                raise ValueError('name not indexed', nm)
-            res = self._objSetFactory()
-            for s in  self._yieldValues(
+            data = self._attrs[query['resultName']]
+            if data['TreeSet'] is not IFBTree.IFTreeSet:
+                raise ValueError(
+                    'cannot fulfill `apply` interface because cannot return '
+                    'an IFBTree-based result')
+            iterable = self._yieldValueTokens(
                 query['resultName'], *(self._parse(
                     query['query'], query.get('maxDepth'),
                     query.get('filter'), query.get('targetQuery'),
                     query.get('targetFilter'),
                     query.get('transitiveQueriesFactory')) +
-                (True,))):
-                res = self._objUnion(res, s)
+                (True,)))
+            if data['multiunion'] is not None:
+                res = data['multiunion'](tuple(iterable))
+            else:
+                res = data['TreeSet']()
+                for s in iterable:
+                    res = data['union'](res, s)
             return res
         else:
             raise ValueError('unknown query type', searchType)
 
     def tokenizeQuery(self, query):
-        generateToken = partial(self.generateObjToken, index=self, cache={})
         res = {}
         for k, v in query.items():
-            if k not in self._attrs:
-                raise ValueError('name not indexed', k)
+            data = self._attrs[k]
             if v is not None:
-                v = generateToken(v)
+                v = data['dump'](v, self, {})
             res[k] = v
         return res
 
-    def findRelationships(self, query):
-        generateToken = partial(self.generateObjToken, index=self, cache={})
-        res = self._relData(query)
-        if res is None:
-            res = ()
+    def resolveQuery(self, query):
+        res = {}
+        for k, v in query.items():
+            data = self._attrs[k]
+            if v is not None:
+                v = data['load'](v, self, {})
+            res[k] = v
         return res
 
-    def getTokensForRelationshipName(self, reltoken, name, default=None):
-        return self._reltoken_name_TO_objtokenset.get(
-            (reltoken, name), default)
+    def tokenizeValues(self, values, name):
+        cache = {}
+        dump = self._attrs[name]['dump']
+        return (dump(v, self, cache) for v in values)
+
+    def resolveValueTokens(self, tokens, name):
+        cache = {}
+        load = self._attrs[name]['load']
+        return (load(t, self, cache) for t in tokens)
+
+    def tokenizeRelationship(self, rel):
+        return self._relTools['dump'](rel, self, {})
+
+    def resolveRelationshipToken(self, token):
+        return self._relTools['load'](token, self, {})
+
+    def tokenizeRelationships(self, rels):
+        cache = {}
+        return (self._relTools['dump'](r, self, cache) for r in rels)
+
+    def resolveRelationshipTokens(self, tokens):
+        cache = {}
+        return (self._relTools['load'](t, self, cache) for t in tokens)
+
+    def findRelationshipTokenSets(self, query):
+        res = self._relData(query)
+        if res is None:
+            res = self._relTools['TreeSet']()
+        return res
+
+    def findValueTokenSets(self, reltoken, name):
+        res = self._reltoken_name_TO_objtokenset.get((reltoken, name))
+        if res is None:
+            res = self._attrs[name]['TreeSet']()
+        return res
 
     def _relData(self, searchTerms):
         data = []
@@ -287,8 +369,7 @@ class Index(persistent.Persistent):
             if token is None:
                 relData = self._EMPTY_name_TO_relcount_relset.get(nm)
             else:
-                relData = self._objtoken_name_TO_relcount_relset.get(
-                    (token, nm))
+                relData = self._name_TO_mapping[nm].get(token)
             if relData is None or relData[0].value == 0:
                 return None
             data.append((relData[0].value, nm, token, relData[1]))
@@ -308,10 +389,11 @@ class Index(persistent.Persistent):
                 # cheap, so if the first_count is significantly smaller than
                 # the second_count we should just check whether each
                 # member of the smaller set is in the larger, one at a time.
-                intersection = self._relSetFactory(
+                intersection = self._relTools['TreeSet'](
                     i for i in first_set if i in second_set)
             else:
-                intersection = self._relIntersection(first_set, second_set)
+                intersection = self._relTools['intersect'](
+                    first_set, second_set)
             if self.deactivateSets:
                 self._deactivate(first_set)
                 self._deactivate(second_set)
@@ -369,21 +451,42 @@ class Index(persistent.Persistent):
         return (query, relData, maxDepth, checkFilter, checkTargetFilter,
                 getQueries)
 
+    def findValueTokens(self, resultName, query, maxDepth=None, filter=None,
+                        targetQuery=None, targetFilter=None,
+                        transitiveQueriesFactory=None):
+        if resultName not in self._attrs:
+            raise ValueError('name not indexed', nm)
+        return self._yieldValueTokens(
+            resultName, *self._parse(
+                query, maxDepth, filter, targetQuery, targetFilter,
+                transitiveQueriesFactory))
+
     def findValues(self, resultName, query, maxDepth=None, filter=None,
                    targetQuery=None, targetFilter=None,
                    transitiveQueriesFactory=None):
-        if resultName not in self._attrs:
-            raise ValueError('name not indexed', nm)
+        resolve = self._attrs[resultName]['load']
+        if resolve is None:
+            raise RuntimeError('do not know how to resolve tokens', resultName)
         return self._yieldValues(
             resultName, *self._parse(
                 query, maxDepth, filter, targetQuery, targetFilter,
                 transitiveQueriesFactory))
 
     def _yieldValues(self, resultName, query, relData, maxDepth, checkFilter,
-                     checkTargetFilter, getQueries, yieldSets=False):
+                     checkTargetFilter, getQueries):
+        resolve = self._attrs[resultName]['load']
+        cache = {}
+        for t in self._yieldValueTokens(resultName, query, relData, maxDepth,
+                                        checkFilter, checkTargetFilter,
+                                        getQueries):
+            yield resolve(t, self, cache)
+
+    def _yieldValueTokens(
+        self, resultName, query, relData, maxDepth, checkFilter,
+        checkTargetFilter, getQueries, yieldSets=False):
         relSeen = set()
         objSeen = set()
-        for path in self._yieldRelationshipChains(
+        for path in self._yieldRelationshipTokenChains(
             query, relData, maxDepth, checkFilter, checkTargetFilter,
             getQueries, findCycles=False):
             relToken = path[-1]
@@ -409,6 +512,8 @@ class Index(persistent.Persistent):
         
         same arguments as findValueTokens except no resultName.
         """
+        if self._relTools['load'] is None:
+            raise RuntimeError('not configured to resolve relationship tokens')
         return self._yieldRelationshipChains(*self._parse(
             query, maxDepth, filter, targetQuery, targetFilter,
             transitiveQueriesFactory))
@@ -416,6 +521,32 @@ class Index(persistent.Persistent):
     def _yieldRelationshipChains(self, query, relData, maxDepth, checkFilter,
                                  checkTargetFilter, getQueries,
                                  findCycles=True):
+        resolve = self._relTools['load']
+        cache = {}
+        for p in self._yieldRelationshipTokenChains(
+            query, relData, maxDepth, checkFilter, checkTargetFilter,
+            getQueries, findCycles):
+            t = (resolve(t, self, cache) for t in p)
+            if interfaces.ICircularRelationshipPath.providedBy(p):
+                res = CircularRelationshipPath(t, p.cycled)
+            else:
+                res = tuple(t)
+            yield res
+
+    def findRelationshipTokenChains(self, query, maxDepth=None, filter=None,
+                                    targetQuery=None, targetFilter=None,
+                                    transitiveQueriesFactory=None):
+        """find relationship tokens that match the searchTerms.
+        
+        same arguments as findValueTokens except no resultName.
+        """
+        return self._yieldRelationshipTokenChains(*self._parse(
+            query, maxDepth, filter, targetQuery, targetFilter,
+            transitiveQueriesFactory))
+
+    def _yieldRelationshipTokenChains(self, query, relData, maxDepth,
+                                      checkFilter, checkTargetFilter,
+                                      getQueries, findCycles=True):
         if not relData:
             raise StopIteration
         stack = [((), iter(relData))]
@@ -459,9 +590,9 @@ class Index(persistent.Persistent):
                  targetQuery=None, targetFilter=None,
                  transitiveQueriesFactory=None):
         try:
-            self.findRelationshipChains(
+            self._yieldRelationshipTokenChains(*self._parse(
                 query, maxDepth, filter, targetQuery, targetFilter,
-                transitiveQueriesFactory).next()
+                transitiveQueriesFactory)+(False,)).next()
         except StopIteration:
             return False
         else:

@@ -3,8 +3,7 @@ relationship index, and some relationship containers.  Both are designed for
 use within the ZODB.  They share the model that relationships are full-fledged
 objects that are indexed for optimized searches.  They also share the ability
 to perform optimized intransitive and transitive relationship searches, and
-have, or can be configured to have, arbitrary filter searches on relationship
-objects.
+to support arbitrary filter searches on relationship tokens.
 
 The index is a very generic component that can be used to optimize searches
 for N-ary relationships, can be used standalone or within a catalog, can be
@@ -13,12 +12,11 @@ a relatively policy-free tool.  It is expected to be used primarily as an
 engine for more specialized and constrained tools and APIs.
 
 The relationship containers use the index to manage two-way relationships,
-either using a container interface or a listcontainer interface.  They are a
-good example of the index in standalone use.
+using a derived mapping interface.  It is a good example of the index in
+standalone use.
 
 This document describes the relationship index.  See container.txt for
-documentation of the relationship container, and listcontainer.txt for
-documentation of the relationship list container.
+documentation of the relationship container.
 
 =====
 Index
@@ -48,7 +46,7 @@ interface with the context.
     ...     subjects = interface.Attribute(
     ...         'The sources of the relationship; the subject of the sentence')
     ...     relationshiptype = interface.Attribute(
-    ...         '''the single relationship type of this relationship;
+    ...         '''unicode: the single relationship type of this relationship;
     ...         usually contains the verb of the sentence.''')
     ...     objects = interface.Attribute(
     ...         '''the targets of the relationship; usually a direct or
@@ -59,71 +57,221 @@ interface with the context.
     ...         '''return a context for the relationship'''
     ...
 
-Now we'll create an index.  To do that, we must minimally pass in a callable
-that, given an object, the index, and a cache to optimize lookups in, will
-return an integer token for the object.  You can use non-integer values (see
-the keyref reference container, for instance) but you must pass in additional
-values.  The index also expects relationship tokens to be integers by default--
-this can also be customized (again see the keyref reference container).
+Now we'll create an index.  To do that, we must minimally pass in an iterable
+describing the indexed values.  Each item in the iterable must either be an
+interface element (a zope.interface.Attribute or zope.interface.Method
+associated with an interface, typically obtained using a spelling like
+`IRelationship['subjects']`) or a dict.  Each dict must have at least one
+key: 'element', which is again the interface element to be indexed.  It then
+can contain other keys to override the default indexing behavior for the
+element.
 
-For now, we will have a very simple token generator and resolver.  Often this
-will involve utilities like the intid utility (see the intid reference
-container).
+The element's __name__ will be used to refer to this element in queries, unless
+the dict has a 'name' key, which must be a non-empty string.
 
-    >>> import random
-    >>> def makeTokenTools(checkArgs=True):
-    ...     lookup = {}
-    ...     def generateToken(obj, index=None, cache=None):
-    ...         if checkArgs:
-    ...             assert index is not None and cache is not None, (
-    ...                 'did not receive correct arguments')
-    ...         token = getattr(obj, '_z_token__', None)
-    ...         if token is None:
-    ...             token = random.randrange(-2147483648, 2147483647)
-    ...             while token in lookup:
-    ...                 token = random.randrange(-2147483648, 2147483647)
-    ...             obj._z_token__ = token
-    ...             lookup[token] = obj
-    ...         return token
-    ...     def resolveToken(token):
-    ...         return lookup[token]
-    ...     return lookup, generateToken, resolveToken
+The element is assumed to be a single value, unless the dict has a 'multiple'
+key with a value equivalent True.
+
+By default, the values for the element will be tokenized and resolved using an
+intid utility, and stored in a BTrees.IFBTree.  This is a good choice if you
+want to make object tokens easily mergable with typical Zope 3 catalog
+results.  If you need different behavior for any element, you can specify
+three keys per dict:
+
+- 'dump', the tokenizer, a callable taking (obj, index, cache) and returning a
+  token;
+
+- 'load' the token resolver, a callable taking (token, index, cache) to return
+  the object which the token represents; and
+
+- 'btree', the btree module to use to store and process the tokens.
+
+If you provide a custom 'dump' you will almost certainly need to provide a
+custom 'load'; and if your tokens are not integers then you will need to
+specify a different 'btree' (either BTrees.OOBTree or BTrees.OIBTree, as of
+this writing).
+
+The tokenizing function ('dump') *must* return homogenous, immutable tokens:
+that is, any given tokenizer should only return tokens that sort
+unambiguously, across Python versions, which usually mean that they are all of
+the same type.  For instance, a tokenizer should only return ints, or only
+return strings, or only tuples of strings, and so on.  Different tokenizers
+used for different elements in the same index may return different types. They
+also may return the same value as the other tokenizers to mean different
+objects: the stores are separate.
+
+In addition to the one required argument to the class, the signature contains
+four optional arguments.  The 'defaultTransitiveQueriesFactory' is the next,
+and allows you to specify a callable as described in
+interfaces.ITransitiveQueriesFactory.  Without it transitive searches will
+require an explicit factory every time, which can be tedious.  The index
+package provides a simple implementation that supports transitive searches
+following two indexed elements (TransposingTransitiveQueriesFactory) and this
+document describes more complex possible transitive behaviors that can be
+modeled.
+
+The next three arguments, 'dumpRel', 'loadRel' and 'relFamily', have
+to do with the relationship tokens.  The default values assume that you will
+be using intid tokens for the relationships, and so 'dumpRel' and
+'loadRel' tokenize and resolve, respectively, using the intid utility; and
+'relFamily' defaults to BTrees.IFBTree.
+
+If relationship tokens (from 'findRelationshipChains' or 'apply' or
+'findRelationshipTokenSets', or in a filter to most of the search methods) are
+to be merged with other catalog results, relationship tokens should be based
+on intids, as in the default.  For instance, if some relationships are only
+available to some users on the basis of security, and you keep an index of
+this, then you will want to use a filter based on the relationship tokens
+viewable by the current user as kept by the catalog index.
+
+If you are unable or unwilling to base relationship tokens, tokens must still
+be homogenous and immutable as described above for indexed values tokens.
+
+The last argument is 'deactivateSets', which defaults to False.  This is an
+optimization to try and keep relationship index searches from consuming too
+much of the ZODB's object cache.  It can cause inefficiency under some
+usages--if queries against the relationship index are very frequent and often
+use the same sets, for instance--and it exposes a bug in the ZODB at the time
+of this writing (_p_deactivate on a new object that has been given an _p_oid
+but has not yet been committed will irretrievably snuff out the object before
+it has had a chance to be committed, so if you add and query in the same
+transaction you will have trouble).  Pass True to this argument to enable
+this behavior.
+
+If we had an IIntId utility registered and wanted to use the defaults, then
+instantiation  of an index for our relationship would look like this:
+
+    >>> from zc.relationship import index
+    >>> ix = index.Index(
+    ...     ({'element': IRelationship['subjects'], 'multiple': True},
+    ...      IRelationship['relationshiptype'],
+    ...      {'element': IRelationship['objects'], 'multiple': True},
+    ...      IContextAwareRelationship['getContext']),
+    ...     index.TransposingTransitiveQueriesFactory('subjects', 'objects'))
+
+Now the index implements IIndex, and the defaultTransitiveQueriesFactory
+implements ITransitiveQueriesFactory.
+
+    >>> from zc.relationship import interfaces
+    >>> from zope.interface.verify import verifyObject
+    >>> verifyObject(interfaces.IIndex, ix)
+    True
+    >>> verifyObject(
+    ...     interfaces.ITransitiveQueriesFactory,
+    ...     ix.defaultTransitiveQueriesFactory)
+    True
+
+For the purposes of a more complex example, though, we are going to exercise
+more of the index's options--we'll use at least one of 'name', 'dump', 'load',
+and 'btree'.
+
+- 'subjects' and 'objects' will use a custom integer-based token generator.
+  They will share tokens, which will let us use the default
+  TransposingTransitiveQueriesFactory.
+
+- 'relationshiptype' will use a name 'reltype' and will just use the unicode
+  value as the token, without translation but with a registration check.
+
+- 'getContext' will use a name 'context' but will continue to use the intid
+  utility and use the names from their interface.  We will see later that
+  making transitive walks across token sources must be handled with care.
+
+We will also use the intid utility to resolve relationship tokens.  See the
+relationship container (and container.txt) for examples of changing the
+relationship type, especially in keyref.py.  The example also turns on the
+'deactivateSets' optimization.
+
+    >>> lookup = {}
+    >>> counter = [-2147483648]
+    >>> prefix = '_z_token__'
+    >>> def dump(obj, index, cache):
+    ...     assert (interfaces.IIndex.providedBy(index) and
+    ...             isinstance(cache, dict)), (
+    ...         'did not receive correct arguments')
+    ...     token = getattr(obj, prefix, None)
+    ...     if token is None:
+    ...         token = counter[0]
+    ...         counter[0] += 1
+    ...         if counter[0] >= 2147483647:
+    ...             raise RuntimeError("Whoa!  That's a lot of ids!")
+    ...         assert token not in lookup
+    ...         setattr(obj, prefix, token)
+    ...         lookup[token] = obj
+    ...     return token
     ...
-    >>> objDict, objGenerateToken, objResolveToken = makeTokenTools()
-    >>> relDict, relGenerateToken, relResolveToken = makeTokenTools(False)
+    >>> def load(token, index, cache):
+    ...     assert (interfaces.IIndex.providedBy(index) and
+    ...             isinstance(cache, dict)), (
+    ...         'did not receive correct arguments')
+    ...     return lookup[token]
+    ...
+    >>> relTypes = []
+    >>> def relTypeDump(obj, index, cache):
+    ...     assert obj in relTypes, 'unknown relationshiptype'
+    ...     return obj
+    ...
+    >>> def relTypeLoad(token, index, cache):
+    ...     assert token in relTypes, 'unknown relationshiptype'
+    ...     return obj
+    ...
 
-Now we can make an index.  We are going to disable the _p_deactivate
-optimization, since we are not really using this within the ZODB.
+Note that this is completely silly if we actually cared about ZODB-based
+persistence: to even make it half-acceptable we should make the counter
+a PersistentList and the dicts IOBTrees.  This is just a demonstration example.
+
+Now we can make an index.
 
 We are going to use the simple transitive query factory defined in the index
 module for our default transitive behavior: when you want to do transitive
-searches, transpose 'subjects' with 'targets' and keep everything else.  If
-both subjects and targets are provided, don't do any transitive search (by
+searches, transpose 'subjects' with 'objects' and keep everything else; and if
+both subjects and objects are provided, don't do any transitive search (by
 default).
 
-    >>> from zc.relationship import index
-    >>> from zc.relationship import interfaces
-    >>> from zope.interface.verify import verifyObject
-    >>> factory = index.TransposingTransitiveQueriesFactory(
-    ...     'subjects', 'objects')
-    >>> verifyObject(interfaces.ITransitiveQueriesFactory, factory)
-    True
+    >>> from BTrees import OIBTree # coould also be OOBTree
     >>> ix = index.Index(
-    ...     ({'element': IRelationship['subjects']},
+    ...     ({'element': IRelationship['subjects'], 'multiple': True,
+    ...       'dump': dump, 'load': load},
     ...      {'element': IRelationship['relationshiptype'], 
-    ...                  'single': True},
-    ...      {'element': IRelationship['objects']},
+    ...       'dump': relTypeDump, 'load': relTypeLoad, 'btree': OIBTree,
+    ...       'name': 'reltype'},
+    ...      {'element': IRelationship['objects'], 'multiple': True,
+    ...       'dump': dump, 'load': load},
     ...      {'element': IContextAwareRelationship['getContext'], 
-    ...                  'single': True}),
-    ...     objGenerateToken, factory, deactivateSets=False)
+    ...       'name': 'context'}),
+    ...     index.TransposingTransitiveQueriesFactory('subjects', 'objects'))
     >>> verifyObject(interfaces.IIndex, ix)
     True
+
+We'll want to put the index somewhere in the system so it can find the intid
+utility.  We'll add it as a utility just as part of the example.  As long as
+the index has a valid __parent__ that is itself connected transitively to a
+site manager with the desired intid utility, everything should work fine, so
+no need to install it as utility.  This is just an example.
+
+    >>> from zope.app.component.interfaces import ILocalUtility
+    >>> from zope import interface
+    >>> interface.alsoProvides(ix, ILocalUtility)
+    >>> sm = app.getSiteManager()
+    >>> package = sm['default']
+    >>> package['rel_index'] = ix
+    >>> import zope.app.utility
+    >>> registration = zope.app.utility.UtilityRegistration(
+    ...     'rel_index', interfaces.IIndex,
+    ...     package['rel_index'])
+    >>> key = package.registrationManager.addRegistration(registration)
+    >>> import zope.app.component.interfaces.registration
+    >>> registration.status = (
+    ...     zope.app.component.interfaces.registration.ActiveStatus)
+    >>> import transaction
+    >>> transaction.commit()
 
 Now we'll create some representative objects that we can relate, and create
 the example relationship we described above.  The context will only be
 available as an adapter to ISpecialRelationship objects.
 
-    >>> class Base(object):
+    >>> import persistent
+    >>> from zope.app.container.contained import Contained
+    >>> class Base(persistent.Persistent, Contained):
     ...     def __init__(self, name):
     ...         self.name = name
     ...     def __repr__(self):
@@ -131,22 +279,21 @@ available as an adapter to ISpecialRelationship objects.
     ...
     >>> class Person(Base): pass
     ...
-    >>> class RelationshipType(Base): pass
-    ...
     >>> class Role(Base): pass
     ...
     >>> class Project(Base): pass
     ...
     >>> class Company(Base): pass
     ...
-    >>> class Relationship(object):
+    >>> class Relationship(persistent.Persistent, Contained):
     ...     interface.implements(IRelationship)
     ...     def __init__(self, subjects, relationshiptype, objects):
     ...         self.subjects = subjects
+    ...         assert relationshiptype in relTypes
     ...         self.relationshiptype = relationshiptype
     ...         self.objects = objects
     ...     def __repr__(self):
-    ...         return '<%r %r %r>' % (
+    ...         return '<%r %s %r>' % (
     ...             self.subjects, self.relationshiptype, self.objects)
     ...
     >>> class ISpecialRelationship(interface.Interface):
@@ -174,120 +321,239 @@ available as an adapter to ISpecialRelationship objects.
     ...           'Heather', 'Ingrid', 'Jim', 'Karyn', 'Lee', 'Mary',
     ...           'Nancy', 'Olaf', 'Perry', 'Quince', 'Rob', 'Sam', 'Terry',
     ...           'Uther', 'Van', 'Warren', 'Xen', 'Ygritte', 'Zane']:
-    ...     people[p] = Person(p)
+    ...     app[p] = people[p] = Person(p)
     ...
-    >>> rels = {}
-    >>> for r in ['has the role of', 'manages', 'taught', 'commissioned']:
-    ...     rels[r] = RelationshipType(r)
-    ...
+    >>> relTypes.extend(
+    ...     ['has the role of', 'manages', 'taught', 'commissioned'])
     >>> roles = {}
     >>> for r in ['Project Manager', 'Software Engineer', 'Designer',
     ...           'Systems Administrator', 'Team Leader', 'Mascot']:
-    ...     roles[r] = Role(r)
+    ...     app[r] = roles[r] = Role(r)
     ...
     >>> projects = {}
     >>> for p in ['zope.org redesign', 'Zope 3 manual',
     ...           'improved test coverage', 'Vault design and implementation']:
-    ...     projects[p] = Project(p)
+    ...     app[p] = projects[p] = Project(p)
     ...
     >>> companies = {}
     >>> for c in ['Ynod Corporation', 'HAL, Inc.', 'Zookd']:
-    ...     companies[c] = Company(c)
+    ...     app[c] = companies[c] = Company(c)
     ...
-    >>> rel = SpecialRelationship(
-    ...     (people['Fred'],),
-    ...     rels['has the role of'],
-    ...     (roles['Project Manager'],))
+    >>> app['fredisprojectmanager'] = rel = SpecialRelationship(
+    ...     (people['Fred'],), 'has the role of', (roles['Project Manager'],))
     >>> IContextAwareRelationship(rel).setContext(
     ...     projects['zope.org redesign'])
-    >>> ix.index_doc(relGenerateToken(rel), rel)
+    >>> ix.index(rel)
+    >>> transaction.commit()
+
+Token conversion
+================
+
+Before we examine the searching features, we should quickly discuss the
+tokenizing API on the index.  All search queries must use value tokens, and
+search results can sometimes be value or relationship tokens.  Therefore
+converting between relationships can be important.  The index provides a
+number of conversion methods for this purpose.
+
+Arguably the most important is `tokenizeQuery`: it takes a query, where each
+key and value are the name of an indexed value and an actual value,
+respectively, and returns a query in which the actual values have been
+converted to tokens.  For instance, consider the following example:
+
+    >>> res = ix.tokenizeQuery(
+    ...     {'objects': roles['Project Manager'],
+    ...      'context': projects['zope.org redesign']})
+    >>> res['objects'] == dump(roles['Project Manager'], ix, {})
+    True
+    >>> from zope.app.intid.interfaces import IIntIds
+    >>> intids = component.getUtility(IIntIds, context=ix)
+    >>> res['context'] == intids.getId(projects['zope.org redesign'])
+    True
+
+Tokenized queries can be resolved to values again using resolveQuery.
+
+    >>> sorted(ix.resolveQuery(res).items()) # doctest: +NORMALIZE_WHITESPACE
+    [('context', <Project 'zope.org redesign'>),
+     ('objects', <Role 'Project Manager'>)]
+
+Other useful conversions are `tokenizeValues`, which returns an iterable of
+tokens for the values of the given index name;
+
+    >>> examples = (people['Abe'], people['Bran'], people['Cathy'])
+    >>> res = list(ix.tokenizeValues(examples, 'subjects'))
+    >>> res == [dump(o, ix, {}) for o in examples]
+    True
+
+`resolveValueTokens`, which returns an iterable of values for the tokens of
+the given index name;
+
+    >>> list(ix.resolveValueTokens(res, 'subjects'))
+    [<Person 'Abe'>, <Person 'Bran'>, <Person 'Cathy'>]
+
+`tokenizeRelationship`, which returns a token for the given relationship;
+
+    >>> res = ix.tokenizeRelationship(rel)
+    >>> res == intids.getId(rel)
+    True
+
+`resolveRelationshipToken`, which returns a relationship for the given token;
+
+    >>> ix.resolveRelationshipToken(res) is rel
+    True
+
+`tokenizeRelationships`, which returns an iterable of tokens for the relations
+given; and
+
+    >>> app['another_rel'] = another_rel = Relationship(
+    ...     (companies['Ynod Corporation'],), 'commissioned',
+    ...     (projects['Vault design and implementation'],))
+    >>> res = list(ix.tokenizeRelationships((another_rel, rel)))
+    >>> res == [intids.getId(r) for r in (another_rel, rel)]
+    True
+
+`resolveRelationshipTokens`, which returns an iterable of relations for the
+tokens given.
+
+    >>> list(ix.resolveRelationshipTokens(res)) == [another_rel, rel]
+    True
 
 Basic searching
 ===============
 
-Now that we have indexed the first example relationship, we can search for it.
-The base index interface defines five searching methods: `isLinked`,
-`findRelationshipChains`, `findRelationships`, `findValues`, and
-the standard zope.index method `apply`.  The `apply` method essentially
-exposes the `findRelationships` and `findValues` methods via a query
-object spelling.
+Now we move to the core of the interface: searching.
 
-Here, we ask 'who has the role of project manager in the zope.org redesign?'.
-Notice that all queries must use tokens, not actual objects; however, the index
+The index interface defines several searching methods: `isLinked`,
+`findRelationshipChains`, `findRelationshipTokenChains`, `findValues`,
+`findValueTokens`, `findRelationshipTokenSets`, `findValueTokenSets`,
+and the standard zope.index method `apply`. The `apply` method essentially
+exposes the `findRelationshipTokenSets` and `findValueTokens` methods via a
+query object spelling.  `findRelationshipChains` and
+`findRelationshipTokenChains` are paired methods, doing the same work but with
+and without resolving the resulting tokens; and `findValues` and
+`findValueTokens` are also paired in the same way.
+
+We have indexed the first example relationship, so we can search for it. We'll
+first look at `findValues` and `findValueTokens`.  Here, we ask 'who has the
+role of project manager in the zope.org redesign?'. Notice that all queries
+must use tokens, not actual objects; however, as introduced above, the index
 provides a method to ease that requirement, in the form of a `tokenizeQuery`
-method that converts a dict with objects to a dict with tokens.  We shorten the
-call by stashing it away.
+method that converts a dict with objects to a dict with tokens.  We shorten
+the call by stashing it away in the 'q' name.
 
     >>> q = ix.tokenizeQuery
-    >>> [objResolveToken(t) for t in ix.findValues(
+    >>> [load(t, ix, {}) for t in ix.findValueTokens(
     ...     'subjects',
-    ...     q({'relationshiptype': rels['has the role of'],
+    ...     q({'reltype': 'has the role of',
     ...       'objects': roles['Project Manager'],
-    ...       'getContext': projects['zope.org redesign']}))]
+    ...       'context': projects['zope.org redesign']}))]
+    [<Person 'Fred'>]
+    >>> list(ix.findValues(
+    ...     'subjects',
+    ...     q({'reltype': 'has the role of',
+    ...       'objects': roles['Project Manager'],
+    ...       'context': projects['zope.org redesign']})))
     [<Person 'Fred'>]
 
 If we want to find all the relationships for which Fred is a subject, we can
-use `findRelationships`.
+use `findRelationshipTokenSets`.  It, combined with `findValueTokenSets`, is
+useful for querying the index data structures at a fairly low level, when you
+want to use the data in a way that the other search methods don't support.
 
-    >>> [relResolveToken(t) for t in ix.findRelationships(
-    ...     q({'subjects': people['Fred']}))] # doctest: +NORMALIZE_WHITESPACE
-    [<(<Person 'Fred'>,) <RelationshipType 'has the role of'>
-      (<Role 'Project Manager'>,)>]
+`findRelationshipTokenSets`, given a single dictionary of {indexName: token},
+returns a set (based on the btree family for relationships in the index) of
+relationship tokens that match it, intransitively.
+
+    >>> res = list(
+    ...     ix.findRelationshipTokenSets(q({'subjects': people['Fred']})))
+    >>> [intids.getObject(t) for t in res]
+    [<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]
+
+`findValueTokenSets`, given a relationship token and a value name, returns a
+set (based on the btree family for the value) of value tokens for that
+relationship.
+
+    >>> [load(t, ix, {}) for t in ix.findValueTokenSets(res[0], 'subjects')]
+    [<Person 'Fred'>]
 
 The apply method, part of the zope.index.interfaces.IIndexSearch interface,
-can essentially only duplicate those two search calls.  The only additional
-functionality is that the results always are IFBTree sets.  A wrapper dict
-specifies the type of search with the key, and the value should be the
-arguments for the search.
+can essentially only duplicate the `findValueTokens` and
+`findRelationshipTokenSets` search calls.  The only additional functionality
+is that the results always are IFBTree sets: if the tokens requested are not
+in an IFBTree set (on the basis of the 'btree' key during instantiation, for
+instance) then the index raises a ValueError.  A wrapper dict specifies the
+type of search with the key, and the value should be the arguments for the
+search.
 
 Here, we ask for the current known roles on the zope.org redesign.
 
     >>> res = ix.apply({'values':
     ...     {'resultName': 'objects', 'query':
-    ...         q({'relationshiptype': rels['has the role of'],
-    ...            'getContext': projects['zope.org redesign']})}})
+    ...         q({'reltype': 'has the role of',
+    ...            'context': projects['zope.org redesign']})}})
     >>> res # doctest: +ELLIPSIS
     IFSet([...])
-    >>> [objResolveToken(t) for t in res]
+    >>> [load(t, ix, {}) for t in res]
     [<Role 'Project Manager'>]
+
+Ideally, this would fail, because the tokens, while integers, are not actually
+mergable with a intid-based catalog results.  However, the index only complains
+if it can tell that the returning set is not an IFTreeSet.
 
 Here, we ask for the relationships that have the 'has the role of' type.
 
     >>> res = ix.apply({'relationships':
-    ...     q({'relationshiptype': rels['has the role of']})})
+    ...     q({'reltype': 'has the role of'})})
+    ... doctest: +ELLIPSIS
     >>> res # doctest: +ELLIPSIS
     <BTrees._IFBTree.IFTreeSet object at ...>
-    >>> [relResolveToken(t) for t in res]
-    ... # doctest: +NORMALIZE_WHITESPACE
-    [<(<Person 'Fred'>,) <RelationshipType 'has the role of'>
-      (<Role 'Project Manager'>,)>]
+    >>> [intids.getObject(t) for t in res]
+    [<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]
 
-The last two basic search methods, `isLinked` and
+Here, we ask for the known relationships for the zope.org redesign.  It
+will fail, because the result cannot be expressed as an IFBTree.IFTreeSet
+
+    >>> res = ix.apply({'values':
+    ...     {'resultName': 'reltype', 'query':
+    ...         q({'context': projects['zope.org redesign']})}})
+    ... # doctest: +NORMALIZE_WHITESPACE
+    Traceback (most recent call last):
+    ...
+    ValueError: cannot fulfill `apply` interface because cannot return an
+                IFBTree-based result
+
+The last basic search methods, `isLinked`, `findRelationshipTokenChains`, and
 `findRelationshipChains`, are most useful for transitive searches.  We
 have not yet created any relationships that we can use transitively.  They
 still will work with intransitive searches, so we will demonstrate them here
-as an introduction.
+as an introduction, then discuss them more below when we introduce transitive
+relationships.
 
-`findRelationshipChains` lets you find transitive relationship paths.
-Right now a single relationship--a single point--can't create much of a line.
-So first, here's a useless example:
+`findRelationshipChains` and `findRelationshipTokenChains` let you find
+transitive relationship paths. Right now a single relationship--a single
+point--can't create much of a line. So first, here's a useless example:
 
-    >>> [[relResolveToken(t) for t in path] for path in
-    ...  ix.findRelationshipChains(
-    ...     q({'relationshiptype': rels['has the role of']}))]
+    >>> [[intids.getObject(t) for t in path] for path in
+    ...  ix.findRelationshipTokenChains(
+    ...     q({'reltype': 'has the role of'}))]
     ... # doctest: +NORMALIZE_WHITESPACE
-    [[<(<Person 'Fred'>,) <RelationshipType 'has the role of'>
-      (<Role 'Project Manager'>,)>]]
+    [[<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]]
 
 That's useless, because there's no chance of it being a transitive search, and
 so you might as well use findRelationships.  This will become more
 interesting later on.
 
+Here's the same example with findRelationshipChains, which resolves the
+relationship tokens itself.
+
+    >>> list(ix.findRelationshipChains(q({'reltype': 'has the role of'})))
+    ... # doctest: +NORMALIZE_WHITESPACE
+    [(<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>,)]
+
 `isLinked` returns a boolean if there is at least one path that matches the
 search--in fact, the implementation is essentially
 
     try:
-        iter(ix.findRelationshipChains(...args...)).next()
+        iter(ix.findRelationshipTokenChains(...args...)).next()
     except StopIteration:
         return False
     else:
@@ -300,7 +566,7 @@ So, we can say
     >>> ix.isLinked(q({'subjects': people['Gary']}))
     False
     >>> ix.isLinked(q({'subjects': people['Fred'],
-    ...                'relationshiptype': rels['manages']}))
+    ...                'reltype': 'manages'}))
     False
 
 This is reasonably useful as is, to test basic assertions.  It also works with
@@ -311,33 +577,45 @@ Searching for empty sets
 
 We've examined the most basic search capabilities.  One other feature of the
 index and search is that one can search for relationships to an empty set, or,
-for single-value relationships like 'relationshiptype' and 'getContext' in our
+for single-value relationships like 'reltype' and 'context' in our
 examples, None.
 
 Let's add a relationship with a 'manages' relationshiptype, and no context; and
 a relationship with a 'commissioned' relationship type, and a company context.
 
-    >>> rel = Relationship(
-    ...     (people['Abe'],), rels['manages'], (people['Bran'],))
-    >>> ix.index_doc(relGenerateToken(rel), rel)
-    >>> rel = SpecialRelationship(
-    ...     (people['Abe'],), rels['commissioned'],
+Notice that there are two ways of adding indexes, by the way.  We have already
+seen that the index has an 'index' method that takes a relationship.  Here we
+use 'index_doc' which is a method defined in zope.index.interfaces.IInjection
+that requires the token to already be generated.
+
+    >>> app['abeAndBran'] = rel = Relationship(
+    ...     (people['Abe'],), 'manages', (people['Bran'],))
+    >>> ix.index_doc(intids.register(rel), rel)
+    >>> app['abeAndVault'] = rel = SpecialRelationship(
+    ...     (people['Abe'],), 'commissioned',
     ...     (projects['Vault design and implementation'],))
     >>> IContextAwareRelationship(rel).setContext(companies['Zookd'])
-    >>> ix.index_doc(relGenerateToken(rel), rel)
+    >>> ix.index_doc(intids.register(rel), rel)
 
 Now we can search for Abe's relationship that does not have a context.  The
 None value is always used to match both an empty set and a single `None` value.
 The index does not support any other "empty" values at this time.
 
     >>> sorted(
-    ...     repr(objResolveToken(t)) for t in ix.findValues(
+    ...     repr(load(t, ix, {})) for t in ix.findValueTokens(
     ...         'objects',
     ...         q({'subjects': people['Abe']})))
     ["<Person 'Bran'>", "<Project 'Vault design and implementation'>"]
-    >>> [objResolveToken(t) for t in ix.findValues(
-    ...     'objects',
-    ...     q({'subjects': people['Abe'], 'getContext': None}))]
+    >>> [load(t, ix, {}) for t in ix.findValueTokens(
+    ...     'objects', q({'subjects': people['Abe'], 'context': None}))]
+    [<Person 'Bran'>]
+    >>> sorted(
+    ...     repr(v) for v in ix.findValues(
+    ...         'objects',
+    ...         q({'subjects': people['Abe']})))
+    ["<Person 'Bran'>", "<Project 'Vault design and implementation'>"]
+    >>> list(ix.findValues(
+    ...     'objects', q({'subjects': people['Abe'], 'context': None})))
     [<Person 'Bran'>]
 
 Note that the index does not currently support searching for relationships that
@@ -373,28 +651,37 @@ rest.
     >>> for subs, obs in relmap:
     ...     subs = tuple(letters[l] for l in subs)
     ...     obs = tuple(letters[l] for l in obs)
-    ...     rel = Relationship(subs, rels['manages'], obs)
-    ...     ix.index_doc(relGenerateToken(rel), rel)
+    ...     app['%sManages%s' % (''.join(o.name for o in subs),
+    ...                          ''.join(o.name for o in obs))] = rel = (
+    ...         Relationship(subs, 'manages', obs))
+    ...     ix.index(rel)
     ...
 
 Now we can do both transitive and intransitive searches.  Here are a few
 examples.
 
-    >>> [objResolveToken(t) for t in ix.findValues(
+    >>> [load(t, ix, {}) for t in ix.findValueTokens(
     ...     'subjects',
     ...     q({'objects': people['Ingrid'],
-    ...        'relationshiptype': rels['manages']}))
+    ...        'reltype': 'manages'}))
     ...     ]
+    [<Person 'Heather'>, <Person 'David'>, <Person 'Bran'>, <Person 'Abe'>]
+
+Here's the same thing using findValues.
+
+    >>> list(ix.findValues(
+    ...     'subjects',
+    ...     q({'objects': people['Ingrid'],
+    ...        'reltype': 'manages'})))
     [<Person 'Heather'>, <Person 'David'>, <Person 'Bran'>, <Person 'Abe'>]
 
 Notice that they are in order, walking away from the search start.  It also
 is breadth-first--for instance, look at the list of superiors to Zane: Xen and
 Uther come before Rob and Terry.
 
-    >>> res = [objResolveToken(t) for t in ix.findValues(
+    >>> res = list(ix.findValues(
     ...     'subjects',
-    ...     q({'objects': people['Zane'], 'relationshiptype': rels['manages']})
-    ...     )]
+    ...     q({'objects': people['Zane'], 'reltype': 'manages'})))
     >>> res[0]
     <Person 'Ygritte'>
     >>> sorted(repr(p) for p in res[1:3])
@@ -406,12 +693,11 @@ Notice that all the elements of the search are maintained as it is walked--only
 the transposed values are changed, and the rest remain statically.  For
 instance, notice the difference between these two results.
 
-    >>> [objResolveToken(t) for t in ix.findValues(
+    >>> [load(t, ix, {}) for t in ix.findValueTokens(
     ...     'objects',
-    ...     q({'subjects': people['Cathy'],
-    ...        'relationshiptype': rels['manages']}))]
+    ...     q({'subjects': people['Cathy'], 'reltype': 'manages'}))]
     [<Person 'Fred'>, <Person 'Gary'>]
-    >>> res = [objResolveToken(t) for t in ix.findValues(
+    >>> res = [load(t, ix, {}) for t in ix.findValueTokens(
     ...     'objects',
     ...     q({'subjects': people['Cathy']}))]
     >>> res[0]
@@ -429,10 +715,18 @@ The `maxDepth` argument allows control over how far to search.  For instance,
 if we only want to search for Bran's subordinates a maximum of two steps deep,
 we can do so:
 
-    >>> res = [objResolveToken(t) for t in ix.findValues(
+    >>> res = [load(t, ix, {}) for t in ix.findValueTokens(
     ...     'objects',
     ...     q({'subjects': people['Bran']}),
     ...     maxDepth=2)]
+    >>> sorted(repr(i) for i in res)
+    ["<Person 'David'>", "<Person 'Emily'>", "<Person 'Heather'>"]
+
+The same is true for findValues.
+
+    >>> res = list(ix.findValues(
+    ...     'objects',
+    ...     q({'subjects': people['Bran']}), maxDepth=2))
     >>> sorted(repr(i) for i in res)
     ["<Person 'David'>", "<Person 'Emily'>", "<Person 'Heather'>"]
 
@@ -458,15 +752,24 @@ set, the way a security-based filter might work.  We'll then use it to model
 a situation in which the current user can't see that Ygritte is managed by
 Uther, in addition to Xen.
 
-    >>> s = set(relDict)
-    >>> relset = list(ix.findRelationships(q({'subjects': people['Xen']})))
+    >>> s = set(intids.getId(r) for r in app.values()
+    ...         if IRelationship.providedBy(r))
+    >>> relset = list(
+    ...     ix.findRelationshipTokenSets(q({'subjects': people['Xen']})))
     >>> len(relset)
     1
     >>> s.remove(relset[0])
-    >>> objGenerateToken(people['Uther'], 1, 1) in list(
+    >>> dump(people['Uther'], ix, {}) in list(
+    ...     ix.findValueTokens('subjects', q({'objects': people['Ygritte']})))
+    True
+    >>> dump(people['Uther'], ix, {}) in list(ix.findValueTokens(
+    ...     'subjects', q({'objects': people['Ygritte']}),
+    ...     filter=lambda relchain, query, index, cache: relchain[-1] in s))
+    False
+    >>> people['Uther'] in list(
     ...     ix.findValues('subjects', q({'objects': people['Ygritte']})))
     True
-    >>> objGenerateToken(people['Uther'], 1, 1) in list(ix.findValues(
+    >>> people['Uther'] in list(ix.findValues(
     ...     'subjects', q({'objects': people['Ygritte']}),
     ...     filter=lambda relchain, query, index, cache: relchain[-1] in s))
     False
@@ -486,15 +789,17 @@ are in specially annotated relationships, or only returning values that have
 traversed a certain hinge relationship in a two-part search, or other tasks.
 A very simply one, though, is to effectively specify a minimum traversal depth.
 Here, we find the people who are precisely two steps down from Bran, no more
-and no less.
+and no less.  We do it twice, once with findValueTokens and once with
+findValues.
 
-    >>> res = [objResolveToken(t) for t in ix.findValues(
-    ...     'objects',
-    ...     q({'subjects': people['Bran']}),
-    ...     maxDepth=2,
+    >>> [load(t, ix, {}) for t in ix.findValueTokens(
+    ...     'objects', q({'subjects': people['Bran']}), maxDepth=2,
     ...     targetFilter=lambda relchain, q, i, c: len(relchain)>=2)]
-    >>> sorted(repr(i) for i in res)
-    ["<Person 'Heather'>"]
+    [<Person 'Heather'>]
+    >>> list(ix.findValues(
+    ...     'objects', q({'subjects': people['Bran']}), maxDepth=2,
+    ...     targetFilter=lambda relchain, q, i, c: len(relchain)>=2))
+    [<Person 'Heather'>]
 
 Heather is the only person precisely two steps down from Bran.
 
@@ -544,23 +849,86 @@ should be read as "Emily taught Mary the lessons of Ygritte".
        R
 
 You can see then that the transitive path of Rob's teachers is Mary and Emily,
-but the transitive path of Rob's lessons is Abe, Zane, Bran, and Lee.
+but the transitive path of Rob's lessons is Abe, Zane, Bran, and Lee.  
+
+Transitive queries factories must do extra work when the transitive walk is
+across token types.  We have used the TransposingTransitiveQueriesFactory to
+build our transposers before, but now we need to write a custom one that
+translates the tokens (ooh!  a 
+TokenTranslatingTransposingTransitiveQueriesFactory!  ...maybe we won't go that
+far...).
+
+We will add the relationships, build the custom transitive factory, and then
+again do the search work twice, once with findValueTokens and once with
+findValues.
 
     >>> for triple in ('EMY', 'MRA', 'DAZ', 'OZB', 'CBL'):
     ...     teacher, student, source = (letters[l] for l in triple)
-    ...     rel = SpecialRelationship((teacher,), rels['taught'], (student,))
+    ...     rel = SpecialRelationship((teacher,), 'taught', (student,))
+    ...     app['%sTaught%sTo%s' % (
+    ...         teacher.name, source.name, student.name)] = rel
     ...     IContextAwareRelationship(rel).setContext(source)
-    ...     ix.index_doc(relGenerateToken(rel), rel)
+    ...     ix.index_doc(intids.register(rel), rel)
     ...
-    >>> [objResolveToken(t) for t in ix.findValues(
+
+    >>> def transitiveFactory(relchain, query, index, cache):
+    ...     dynamic = cache.get('dynamic')
+    ...     if dynamic is None:
+    ...         intids = cache['intids'] = component.getUtility(
+    ...             IIntIds, context=index)
+    ...         static = cache['static'] = {}
+    ...         dynamic = cache['dynamic'] = []
+    ...         names = ['objects', 'context']
+    ...         for nm, val in query.items():
+    ...             try:
+    ...                 ix = names.index(nm)
+    ...             except ValueError:
+    ...                 static[nm] = val
+    ...             else:
+    ...                 if dynamic:
+    ...                     # both were specified: no transitive search known.
+    ...                     del dynamic[:]
+    ...                     cache['intids'] = False
+    ...                     break
+    ...                 else:
+    ...                     dynamic.append(nm)
+    ...                     dynamic.append(names[not ix])
+    ...         else:
+    ...             intids = component.getUtility(IIntIds, context=index)
+    ...             if dynamic[0] == 'objects':
+    ...                 def translate(t):
+    ...                     return dump(intids.getObject(t), index, cache)
+    ...             else:
+    ...                 def translate(t):
+    ...                     return intids.register(load(t, index, cache))
+    ...             cache['translate'] = translate
+    ...     else:
+    ...         static = cache['static']
+    ...         translate = cache['translate']
+    ...     if dynamic:
+    ...         for r in index.findValueTokenSets(relchain[-1], dynamic[1]):
+    ...             res = {dynamic[0]: translate(r)}
+    ...             res.update(static)
+    ...             yield res
+
+    >>> [load(t, ix, {}) for t in ix.findValueTokens(
     ...     'subjects',
-    ...     q({'objects': people['Rob'], 'relationshiptype': rels['taught']}))]
+    ...     q({'objects': people['Rob'], 'reltype': 'taught'}))]
     [<Person 'Mary'>, <Person 'Emily'>]
-    >>> [objResolveToken(t) for t in ix.findValues(
-    ...     'getContext',
-    ...     q({'objects': people['Rob'], 'relationshiptype': rels['taught']}),
-    ...     transitiveQueriesFactory=index.TransposingTransitiveQueriesFactory(
-    ...         'objects', 'getContext'))]
+    >>> [intids.getObject(t) for t in ix.findValueTokens(
+    ...     'context',
+    ...     q({'objects': people['Rob'], 'reltype': 'taught'}),
+    ...     transitiveQueriesFactory=transitiveFactory)]
+    [<Person 'Abe'>, <Person 'Zane'>, <Person 'Bran'>, <Person 'Lee'>]
+
+    >>> list(ix.findValues(
+    ...     'subjects',
+    ...     q({'objects': people['Rob'], 'reltype': 'taught'})))
+    [<Person 'Mary'>, <Person 'Emily'>]
+    >>> list(ix.findValues(
+    ...     'context',
+    ...     q({'objects': people['Rob'], 'reltype': 'taught'}),
+    ...     transitiveQueriesFactory=transitiveFactory))
     [<Person 'Abe'>, <Person 'Zane'>, <Person 'Bran'>, <Person 'Lee'>]
 
 transitiveQueryFactories can be very powerful, and we aren't finished talking
@@ -574,36 +942,42 @@ get all of Karyn's subordinates.
 
     >>> res = ix.apply({'values':
     ...     {'resultName': 'objects', 'query':
-    ...         q({'relationshiptype': rels['manages'],
+    ...         q({'reltype': 'manages',
     ...           'subjects': people['Karyn']})}})
     >>> res # doctest: +ELLIPSIS
     IFSet([...])
-    >>> sorted(repr(objResolveToken(t)) for t in res)
+    >>> sorted(repr(load(t, ix, {})) for t in res)
     ... # doctest: +NORMALIZE_WHITESPACE
     ["<Person 'Lee'>", "<Person 'Mary'>", "<Person 'Nancy'>",
      "<Person 'Olaf'>", "<Person 'Perry'>", "<Person 'Quince'>"]
 
-As we return to `findRelationshipChains`, we also return to the search
-argument we postponed above: targetQuery.  
+As we return to `findRelationshipChains` and `findRelationshipTokenChains`, we
+also return to the search argument we postponed above: targetQuery.  
 
-The `findRelationshipChains` can simply find all paths:
+The `findRelationshipChains` and `findRelationshipTokenChains` can simply find
+all paths:
 
-    >>> res = [repr([relResolveToken(t) for t in path]) for path in
-    ...  ix.findRelationshipChains(
-    ...     q({'relationshiptype': rels['manages'], 'subjects': people['Jim']}
+    >>> res = [repr([intids.getObject(t) for t in path]) for path in
+    ...  ix.findRelationshipTokenChains(
+    ...     q({'reltype': 'manages', 'subjects': people['Jim']}
     ...     ))]
     >>> len(res)
     3
     >>> sorted(res[:2]) # doctest: +NORMALIZE_WHITESPACE
-    ["[<(<Person 'Jim'>, <Person 'Karyn'>) <RelationshipType 'manages'>
+    ["[<(<Person 'Jim'>, <Person 'Karyn'>) manages
         (<Person 'Lee'>, <Person 'Mary'>)>]",
-     "[<(<Person 'Jim'>, <Person 'Karyn'>) <RelationshipType 'manages'>
+     "[<(<Person 'Jim'>, <Person 'Karyn'>) manages
         (<Person 'Nancy'>, <Person 'Olaf'>, <Person 'Perry'>)>]"]
     >>> res[2] # doctest: +NORMALIZE_WHITESPACE
-    "[<(<Person 'Jim'>, <Person 'Karyn'>) <RelationshipType 'manages'>
+    "[<(<Person 'Jim'>, <Person 'Karyn'>) manages
        (<Person 'Lee'>, <Person 'Mary'>)>,
-      <(<Person 'Lee'>, <Person 'Mary'>) <RelationshipType 'manages'>
+      <(<Person 'Lee'>, <Person 'Mary'>) manages
        (<Person 'Quince'>,)>]"
+    >>> res == [repr(list(p)) for p in
+    ...  ix.findRelationshipChains(
+    ...     q({'reltype': 'manages', 'subjects': people['Jim']}
+    ...     ))]
+    True
 
 Like `findValues`, this is a breadth-first search.
 
@@ -613,36 +987,31 @@ Ygritte.  While a `findValues` search would only include Rob once if asked to
 search for supervisors, there are two paths.  These can be found with the
 targetSearch.
 
-    >>> res = [repr([relResolveToken(t) for t in path]) for path in
-    ...  ix.findRelationshipChains(
-    ...     q({'relationshiptype': rels['manages'],
-    ...        'subjects': people['Rob']}),
+    >>> res = [repr([intids.getObject(t) for t in path]) for path in
+    ...  ix.findRelationshipTokenChains(
+    ...     q({'reltype': 'manages', 'subjects': people['Rob']}),
     ...     targetQuery=q({'objects': people['Ygritte']}))]
     >>> len(res)
     2
     >>> sorted(res[:2]) # doctest: +NORMALIZE_WHITESPACE
-    ["[<(<Person 'Rob'>,) <RelationshipType 'manages'>
+    ["[<(<Person 'Rob'>,) manages
         (<Person 'Sam'>, <Person 'Terry'>, <Person 'Uther'>)>,
-       <(<Person 'Terry'>,) <RelationshipType 'manages'> (<Person 'Xen'>,)>,
-       <(<Person 'Uther'>, <Person 'Xen'>) <RelationshipType 'manages'>
-        (<Person 'Ygritte'>,)>]",
-     "[<(<Person 'Rob'>,) <RelationshipType 'manages'>
+       <(<Person 'Terry'>,) manages (<Person 'Xen'>,)>,
+       <(<Person 'Uther'>, <Person 'Xen'>) manages (<Person 'Ygritte'>,)>]",
+     "[<(<Person 'Rob'>,) manages
         (<Person 'Sam'>, <Person 'Terry'>, <Person 'Uther'>)>,
-       <(<Person 'Uther'>, <Person 'Xen'>) <RelationshipType 'manages'>
-        (<Person 'Ygritte'>,)>]"] 
+       <(<Person 'Uther'>, <Person 'Xen'>) manages (<Person 'Ygritte'>,)>]"] 
 
 `isLinked` takes the same arguments as all of the other transitive-aware
 methods.  For instance, Rob and Ygritte are transitively linked, but Abe and
 Zane are not.
 
     >>> ix.isLinked(
-    ...     q({'relationshiptype': rels['manages'],
-    ...        'subjects': people['Rob']}),
+    ...     q({'reltype': 'manages', 'subjects': people['Rob']}),
     ...     targetQuery=q({'objects': people['Ygritte']}))
     True
     >>> ix.isLinked(
-    ...     q({'relationshiptype': rels['manages'],
-    ...        'subjects': people['Abe']}),
+    ...     q({'reltype': 'manages', 'subjects': people['Abe']}),
     ...     targetQuery=q({'objects': people['Ygritte']}))
     False
 
@@ -664,9 +1033,8 @@ that would be equivalent to following the cycle (given the same transitiveMap).
 
 Let's actually look at the example we described.
 
-    >>> res = list(ix.findRelationshipChains(
-    ...     q({'objects': people['Ingrid'],
-    ...        'relationshiptype': rels['manages']})))
+    >>> res = list(ix.findRelationshipTokenChains(
+    ...     q({'objects': people['Ingrid'], 'reltype': 'manages'})))
     >>> len(res)
     4
     >>> len(res[3])
@@ -674,11 +1042,11 @@ Let's actually look at the example we described.
     >>> interfaces.ICircularRelationshipPath.providedBy(res[3])
     False
     >>> rel = Relationship(
-    ...     (people['Gary'],), rels['manages'], (people['Abe'],))
-    >>> ix.index_doc(relGenerateToken(rel), rel)
-    >>> res = list(ix.findRelationshipChains(
-    ...     q({'objects': people['Ingrid'],
-    ...        'relationshiptype': rels['manages']})))
+    ...     (people['Gary'],), 'manages', (people['Abe'],))
+    >>> app['GaryManagesAbe'] = rel
+    >>> ix.index(rel)
+    >>> res = list(ix.findRelationshipTokenChains(
+    ...     q({'objects': people['Ingrid'], 'reltype': 'manages'})))
     >>> len(res)
     8
     >>> len(res[7])
@@ -686,11 +1054,11 @@ Let's actually look at the example we described.
     >>> interfaces.ICircularRelationshipPath.providedBy(res[7])
     True
     >>> [sorted(
-    ...     (nm, objResolveToken(t))
+    ...     (nm, nm == 'objects' and load(t, ix, {}) or t)
     ...     for nm, t in search.items()) for search in res[7].cycled]
     ... # doctest: +NORMALIZE_WHITESPACE
     [[('objects', <Person 'Abe'>),
-      ('relationshiptype', <RelationshipType 'manages'>)]]
+      ('reltype', 'manages')]]
 
 Notice that there is nothing special about the new relationship, by the way.
 If we had started to look for Fred's supervisors, the cycle marker would have
@@ -706,33 +1074,26 @@ For instance, lets have Q manage L and Y.  The link to L will be a cycle, but
 the link to Y is not, and should be followed.  This means that only the middle
 relationship chain will be marked as a cycle.
 
-    >>> rel = Relationship((people['Quince'],), rels['manages'],
+    >>> rel = Relationship((people['Quince'],), 'manages',
     ...                    (people['Lee'], people['Ygritte']))
-    >>> ix.index_doc(relGenerateToken(rel), rel)
-    >>> res = [p for p in ix.findRelationshipChains(
-    ...     q({'relationshiptype': rels['manages'],
-    ...        'subjects': people['Mary']}))]
+    >>> app['QuinceManagesLeeYgritte'] = rel
+    >>> ix.index_doc(intids.register(rel), rel)
+    >>> res = [p for p in ix.findRelationshipTokenChains(
+    ...     q({'reltype': 'manages', 'subjects': people['Mary']}))]
     >>> [interfaces.ICircularRelationshipPath.providedBy(p) for p in res]
     [False, True, False]
-    >>> [[relResolveToken(t) for t in p] for p in res]
+    >>> [[intids.getObject(t) for t in p] for p in res]
     ... # doctest: +NORMALIZE_WHITESPACE
-    [[<(<Person 'Lee'>, <Person 'Mary'>) <RelationshipType 'manages'>
-       (<Person 'Quince'>,)>],
-     [<(<Person 'Lee'>, <Person 'Mary'>) <RelationshipType 'manages'>
-       (<Person 'Quince'>,)>,
-      <(<Person 'Quince'>,) <RelationshipType 'manages'>
-       (<Person 'Lee'>, <Person 'Ygritte'>)>],
-     [<(<Person 'Lee'>, <Person 'Mary'>) <RelationshipType 'manages'>
-       (<Person 'Quince'>,)>,
-      <(<Person 'Quince'>,) <RelationshipType 'manages'>
-       (<Person 'Lee'>, <Person 'Ygritte'>)>,
-      <(<Person 'Ygritte'>,) <RelationshipType 'manages'> (<Person 'Zane'>,)>]]
+    [[<(<Person 'Lee'>, <Person 'Mary'>) manages (<Person 'Quince'>,)>],
+     [<(<Person 'Lee'>, <Person 'Mary'>) manages (<Person 'Quince'>,)>,
+      <(<Person 'Quince'>,) manages (<Person 'Lee'>, <Person 'Ygritte'>)>],
+     [<(<Person 'Lee'>, <Person 'Mary'>) manages (<Person 'Quince'>,)>,
+      <(<Person 'Quince'>,) manages (<Person 'Lee'>, <Person 'Ygritte'>)>,
+      <(<Person 'Ygritte'>,) manages (<Person 'Zane'>,)>]]
     >>> [sorted(
-    ...     (nm, objResolveToken(t))
+    ...     (nm, nm == 'reltype' and t or load(t, ix, {}))
     ...     for nm, t in search.items()) for search in res[1].cycled]
-    ... # doctest: +NORMALIZE_WHITESPACE
-    [[('relationshiptype', <RelationshipType 'manages'>),
-      ('subjects', <Person 'Lee'>)]]
+    [[('reltype', 'manages'), ('subjects', <Person 'Lee'>)]]
 
 Transitively mapping multiple elements
 --------------------------------------
@@ -773,47 +1134,46 @@ index.
 
 Here we change the zope.org project manager from Fred to Emily.
 
-    >>> [objResolveToken(t) for t in ix.findValues(
+    >>> [load(t, ix, {}) for t in ix.findValueTokens(
     ...     'subjects',
-    ...     q({'relationshiptype': rels['has the role of'],
+    ...     q({'reltype': 'has the role of',
     ...       'objects': roles['Project Manager'],
-    ...       'getContext': projects['zope.org redesign']}))]
+    ...       'context': projects['zope.org redesign']}))]
     [<Person 'Fred'>]
-    >>> rel = relResolveToken(list(ix.findRelationships(
-    ...     q({'relationshiptype': rels['has the role of'],
+    >>> rel = intids.getObject(list(ix.findRelationshipTokenSets(
+    ...     q({'reltype': 'has the role of',
     ...       'objects': roles['Project Manager'],
-    ...       'getContext': projects['zope.org redesign']})))[0])
+    ...       'context': projects['zope.org redesign']})))[0])
     >>> rel.subjects = (people['Emily'],)
-    >>> ix.index_doc(relGenerateToken(rel), rel)
+    >>> ix.index_doc(intids.register(rel), rel)
     >>> q = ix.tokenizeQuery
-    >>> [objResolveToken(t) for t in ix.findValues(
+    >>> [load(t, ix, {}) for t in ix.findValueTokens(
     ...     'subjects',
-    ...     q({'relationshiptype': rels['has the role of'],
+    ...     q({'reltype': 'has the role of',
     ...       'objects': roles['Project Manager'],
-    ...       'getContext': projects['zope.org redesign']}))]
+    ...       'context': projects['zope.org redesign']}))]
     [<Person 'Emily'>]
 
 Here we remove the relationship that made a cycle for Abe in the 'king in
 disguise' scenario.
 
-    >>> res = list(ix.findRelationshipChains(
+    >>> res = list(ix.findRelationshipTokenChains(
     ...     q({'objects': people['Ingrid'],
-    ...        'relationshiptype': rels['manages']})))
+    ...        'reltype': 'manages'})))
     >>> len(res)
     8
     >>> len(res[7])
     8
     >>> interfaces.ICircularRelationshipPath.providedBy(res[7])
     True
-    >>> rel = relResolveToken(list(ix.findRelationships(
-    ...     q({'subjects': people['Gary'], 'relationshiptype': rels['manages'],
+    >>> rel = intids.getObject(list(ix.findRelationshipTokenSets(
+    ...     q({'subjects': people['Gary'], 'reltype': 'manages',
     ...        'objects': people['Abe']})))[0])
-    >>> ix.unindex_doc(relGenerateToken(rel))
+    >>> ix.unindex(rel) # == ix.unindex_doc(intids.getId(rel))
     >>> ix.documentCount()
     24
-    >>> res = list(ix.findRelationshipChains(
-    ...     q({'objects': people['Ingrid'],
-    ...        'relationshiptype': rels['manages']})))
+    >>> res = list(ix.findRelationshipTokenChains(
+    ...     q({'objects': people['Ingrid'], 'reltype': 'manages'})))
     >>> len(res)
     4
     >>> len(res[3])
@@ -826,13 +1186,12 @@ Finally we clear out the whole index.
     >>> ix.clear()
     >>> ix.documentCount()
     0
-    >>> list(ix.findRelationshipChains(
-    ...     q({'objects': people['Ingrid'],
-    ...        'relationshiptype': rels['manages']})))
+    >>> list(ix.findRelationshipTokenChains(
+    ...     q({'objects': people['Ingrid'], 'reltype': 'manages'})))
     []
-    >>> [objResolveToken(t) for t in ix.findValues(
+    >>> [load(t, ix, {}) for t in ix.findValueTokens(
     ...     'subjects',
-    ...     q({'relationshiptype': rels['has the role of'],
+    ...     q({'reltype': 'has the role of',
     ...       'objects': roles['Project Manager'],
-    ...       'getContext': projects['zope.org redesign']}))]
+    ...       'context': projects['zope.org redesign']}))]
     []
