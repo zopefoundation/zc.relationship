@@ -22,12 +22,10 @@ documentation of the relationship container.
 Index
 =====
 
-The index interface searches for object and relationship tokens.  Let's look
-at some examples of the core capabilities.
-
-To use a relationship index, you need to have interface attributes, or methods
-callable with no arguments, that are treated as relationship pointers.  The
-pointers may be a collection of items or a single item.
+The index interface searches for object and relationship tokens. To use a
+relationship index, you need to have interface attributes, or methods callable
+with no arguments, that are treated as relationship pointers.  The pointers
+may be a collection of items or a single item.
 
 To exercise the index, we'll come up with a somewhat complex relationship to
 index. Let's say we are modeling a generic set-up like SUBJECT
@@ -35,8 +33,16 @@ RELATIONSHIPTYPE OBJECT in CONTEXT.  This could let you let users define
 relationship types, then index them on the fly.  The context can be something
 like a project, so we could say
 
-[Fred (SUBJECT)] [has the role of (RELATIONSHIPTYPE)]
-[Project Manager (OBJECT)] on the [zope.org redesign project (CONTEXT)].
+"Fred" "has the role of" "Project Manager" on the "zope.org redesign project".
+
+Mapped to the parts of the relationship object, that's
+
+["Fred" (SUBJECT)] ["has the role of" (RELATIONSHIPTYPE)]
+["Project Manager" (OBJECT)] on the ["zope.org redesign project" (CONTEXT)].
+
+Without the context, you can still do interesting things like
+
+["Ygritte" (SUBJECT)] ["manages" (RELATIONSHIPTYPE)] ["Uther" (OBJECT)]
 
 So let's define a basic interface without the context, and then an extended
 interface with the context.
@@ -61,16 +67,17 @@ Now we'll create an index.  To do that, we must minimally pass in an iterable
 describing the indexed values.  Each item in the iterable must either be an
 interface element (a zope.interface.Attribute or zope.interface.Method
 associated with an interface, typically obtained using a spelling like
-`IRelationship['subjects']`) or a dict.  Each dict must have at least one
-key: 'element', which is again the interface element to be indexed.  It then
-can contain other keys to override the default indexing behavior for the
-element.
+`IRelationship['subjects']`) or a dict.  Each dict must have at least one key:
+'element', which is the interface element to be indexed.  It then can contain
+other keys to override the default indexing behavior for the element.
 
 The element's __name__ will be used to refer to this element in queries, unless
 the dict has a 'name' key, which must be a non-empty string.
 
 The element is assumed to be a single value, unless the dict has a 'multiple'
-key with a value equivalent True.
+key with a value equivalent True.  In our example, "subjects" and "objects" are
+potentially multiple values, while "relationshiptype" and "getContext" are
+single values.
 
 By default, the values for the element will be tokenized and resolved using an
 intid utility, and stored in a BTrees.IFBTree.  This is a good choice if you
@@ -84,7 +91,8 @@ three keys per dict:
 - 'load' the token resolver, a callable taking (token, index, cache) to return
   the object which the token represents; and
 
-- 'btree', the btree module to use to store and process the tokens.
+- 'btree', the btree module to use to store and process the tokens, such as
+  BTrees.OOBTree.
 
 If you provide a custom 'dump' you will almost certainly need to provide a
 custom 'load'; and if your tokens are not integers then you will need to
@@ -108,7 +116,12 @@ require an explicit factory every time, which can be tedious.  The index
 package provides a simple implementation that supports transitive searches
 following two indexed elements (TransposingTransitiveQueriesFactory) and this
 document describes more complex possible transitive behaviors that can be
-modeled.
+modeled.  For our example, "subjects" and "objects" are the default transitive
+fields, so if Ygritte (SUBJECT) manages Uther (OBJECT), and Uther (SUBJECT)
+manages Emily (OBJECT), a search for all those transitively managed by Ygritte
+will transpose Uther from OBJECT to SUBJECT and find that Uther manages Emily.
+Similarly, to find all transitive managers of Emily, Uther will change place
+from SUBJECT to OBJECT in the search.
 
 The next three arguments, 'dumpRel', 'loadRel' and 'relFamily', have
 to do with the relationship tokens.  The default values assume that you will
@@ -124,8 +137,8 @@ available to some users on the basis of security, and you keep an index of
 this, then you will want to use a filter based on the relationship tokens
 viewable by the current user as kept by the catalog index.
 
-If you are unable or unwilling to base relationship tokens, tokens must still
-be homogenous and immutable as described above for indexed values tokens.
+If you are unable or unwilling to use intid relationship tokens, tokens must
+still be homogenous and immutable as described above for indexed values tokens.
 
 The last argument is 'deactivateSets', which defaults to False.  This is an
 optimization to try and keep relationship index searches from consuming too
@@ -136,7 +149,7 @@ of this writing (_p_deactivate on a new object that has been given an _p_oid
 but has not yet been committed will irretrievably snuff out the object before
 it has had a chance to be committed, so if you add and query in the same
 transaction you will have trouble).  Pass True to this argument to enable
-this behavior.
+this optimization.
 
 If we had an IIntId utility registered and wanted to use the defaults, then
 instantiation  of an index for our relationship would look like this:
@@ -149,8 +162,9 @@ instantiation  of an index for our relationship would look like this:
     ...      IContextAwareRelationship['getContext']),
     ...     index.TransposingTransitiveQueriesFactory('subjects', 'objects'))
 
-Now the index implements IIndex, and the defaultTransitiveQueriesFactory
-implements ITransitiveQueriesFactory.
+That's the simple case.  With relatively little fuss, we have an IIndex, and a
+defaultTransitiveQueriesFactory, implementing ITransitiveQueriesFactory, that
+switches subjects and objects as described above.
 
     >>> from zc.relationship import interfaces
     >>> from zope.interface.verify import verifyObject
@@ -167,19 +181,24 @@ and 'btree'.
 
 - 'subjects' and 'objects' will use a custom integer-based token generator.
   They will share tokens, which will let us use the default
-  TransposingTransitiveQueriesFactory.
+  TransposingTransitiveQueriesFactory.  We can keep using the IFBTree sets,
+  because the tokens are still integers.
 
 - 'relationshiptype' will use a name 'reltype' and will just use the unicode
   value as the token, without translation but with a registration check.
 
 - 'getContext' will use a name 'context' but will continue to use the intid
   utility and use the names from their interface.  We will see later that
-  making transitive walks across token sources must be handled with care.
+  making transitive walks between different token sources must be handled with
+  care.
 
 We will also use the intid utility to resolve relationship tokens.  See the
 relationship container (and container.txt) for examples of changing the
 relationship type, especially in keyref.py.  The example also turns on the
 'deactivateSets' optimization.
+
+Here are the methods we'll use for the 'subjects' and 'objects' tokens,
+followed by the methods we'll use for the 'relationshiptypes' tokens.
 
     >>> lookup = {}
     >>> counter = [-2147483648]
@@ -215,19 +234,20 @@ relationship type, especially in keyref.py.  The example also turns on the
     ...     return obj
     ...
 
-Note that this is completely silly if we actually cared about ZODB-based
-persistence: to even make it half-acceptable we should make the counter
-a PersistentList and the dicts IOBTrees.  This is just a demonstration example.
+Note that these implementations are completely silly if we actually cared about
+ZODB-based persistence: to even make it half-acceptable we should make the 
+counter, lookup, and and relTypes persistently stored somewhere using a
+reasonable persistent data structure.  This is just a demonstration example.
 
 Now we can make an index.
 
-We are going to use the simple transitive query factory defined in the index
-module for our default transitive behavior: when you want to do transitive
-searches, transpose 'subjects' with 'objects' and keep everything else; and if
-both subjects and objects are provided, don't do any transitive search (by
-default).
+As in our initial example, we are going to use the simple transitive query
+factory defined in the index module for our default transitive behavior: when
+you want to do transitive searches, transpose 'subjects' with 'objects' and
+keep everything else; and if both subjects and objects are provided, don't do
+any transitive search.
 
-    >>> from BTrees import OIBTree # coould also be OOBTree
+    >>> from BTrees import OIBTree # could also be OOBTree
     >>> ix = index.Index(
     ...     ({'element': IRelationship['subjects'], 'multiple': True,
     ...       'dump': dump, 'load': load},
@@ -239,8 +259,6 @@ default).
     ...      {'element': IContextAwareRelationship['getContext'], 
     ...       'name': 'context'}),
     ...     index.TransposingTransitiveQueriesFactory('subjects', 'objects'))
-    >>> verifyObject(interfaces.IIndex, ix)
-    True
 
 We'll want to put the index somewhere in the system so it can find the intid
 utility.  We'll add it as a utility just as part of the example.  As long as
@@ -266,8 +284,11 @@ no need to install it as utility.  This is just an example.
     >>> transaction.commit()
 
 Now we'll create some representative objects that we can relate, and create
-the example relationship we described above.  The context will only be
-available as an adapter to ISpecialRelationship objects.
+and index our first example relationship.
+
+In the example, note that the context will only be available as an adapter to
+ISpecialRelationship objects: the index tries to adapt objects to the
+appropriate interface, and considers the value to be empty if it cannot adapt.
 
     >>> import persistent
     >>> from zope.app.container.contained import Contained
@@ -339,6 +360,7 @@ available as an adapter to ISpecialRelationship objects.
     >>> for c in ['Ynod Corporation', 'HAL, Inc.', 'Zookd']:
     ...     app[c] = companies[c] = Company(c)
     ...
+
     >>> app['fredisprojectmanager'] = rel = SpecialRelationship(
     ...     (people['Fred'],), 'has the role of', (roles['Project Manager'],))
     >>> IContextAwareRelationship(rel).setContext(
@@ -352,13 +374,16 @@ Token conversion
 Before we examine the searching features, we should quickly discuss the
 tokenizing API on the index.  All search queries must use value tokens, and
 search results can sometimes be value or relationship tokens.  Therefore
-converting between relationships can be important.  The index provides a
-number of conversion methods for this purpose.
+converting between tokens and real values can be important.  The index
+provides a number of conversion methods for this purpose.
 
-Arguably the most important is `tokenizeQuery`: it takes a query, where each
-key and value are the name of an indexed value and an actual value,
-respectively, and returns a query in which the actual values have been
-converted to tokens.  For instance, consider the following example:
+Arguably the most important is `tokenizeQuery`: it takes a query, in which
+each key and value are the name of an indexed value and an actual value,
+respectively; and returns a query in which the actual values have been
+converted to tokens.  For instance, consider the following example.  It's a
+bit hard to show the conversion reliably (we can't know what the intid tokens
+will be, for instance) so we just show that the result's values are tokenized
+versions of the inputs.
 
     >>> res = ix.tokenizeQuery(
     ...     {'objects': roles['Project Manager'],
@@ -420,38 +445,57 @@ tokens given.
 Basic searching
 ===============
 
-Now we move to the core of the interface: searching.
+Now we move to the meat of the interface: searching.  The index interface
+defines several searching methods: 
 
-The index interface defines several searching methods: `isLinked`,
-`findRelationshipChains`, `findRelationshipTokenChains`, `findValues`,
-`findValueTokens`, `findRelationshipTokenSets`, `findValueTokenSets`,
-and the standard zope.index method `apply`. The `apply` method essentially
-exposes the `findRelationshipTokenSets` and `findValueTokens` methods via a
-query object spelling.  `findRelationshipChains` and
-`findRelationshipTokenChains` are paired methods, doing the same work but with
-and without resolving the resulting tokens; and `findValues` and
-`findValueTokens` are also paired in the same way.
+- `findValues` and `findValueTokens` ask "to what is this related?";
 
-We have indexed the first example relationship, so we can search for it. We'll
-first look at `findValues` and `findValueTokens`.  Here, we ask 'who has the
-role of project manager in the zope.org redesign?'. Notice that all queries
-must use tokens, not actual objects; however, as introduced above, the index
-provides a method to ease that requirement, in the form of a `tokenizeQuery`
-method that converts a dict with objects to a dict with tokens.  We shorten
-the call by stashing it away in the 'q' name.
+- `findRelationshipChains` and `findRelationshipTokenChains` ask "how is this
+  related?", especially for transitive searches;
+
+- `isLinked` asks "does a relationship like this exist?";
+
+- `findRelationshipTokenSets` asks "what are the intransitive relationships
+  that match my query?" and is particularly useful for low-level usage of the
+  index data structures;
+
+- `findValueTokenSets` asks "what are the value tokens for this particular
+  indexed name and this relationship token?" and is useful for low-level
+  usage of the index data structures such as transitive query factories; and
+
+- the standard zope.index method `apply` essentially exposes the
+  `findRelationshipTokenSets` and `findValueTokens` methods via a query object
+  spelling.
+
+`findRelationshipChains` and `findRelationshipTokenChains` are paired methods,
+doing the same work but with and without resolving the resulting tokens; and
+`findValues` and `findValueTokens` are also paired in the same way.
+
+It is very important to note that all queries must use tokens, not actual
+objects.  As introduced above, the index provides a method to ease that
+requirement, in the form of a `tokenizeQuery` method that converts a dict with
+objects to a dict with tokens.  You'll see below that we shorten our calls by
+stashing `tokenizeQuery` away in the 'q' name.
+
+We have indexed our first example relationship--"Fred has the role of project
+manager in the zope.org redesign"--so we can search for it.  We'll first look
+at `findValues` and `findValueTokens`.  Here, we ask 'who has the role of
+project manager in the zope.org redesign?'.  We do it first with findValues
+and then with findTokenValues.
 
     >>> q = ix.tokenizeQuery
-    >>> [load(t, ix, {}) for t in ix.findValueTokens(
-    ...     'subjects',
-    ...     q({'reltype': 'has the role of',
-    ...       'objects': roles['Project Manager'],
-    ...       'context': projects['zope.org redesign']}))]
-    [<Person 'Fred'>]
     >>> list(ix.findValues(
     ...     'subjects',
     ...     q({'reltype': 'has the role of',
     ...       'objects': roles['Project Manager'],
     ...       'context': projects['zope.org redesign']})))
+    [<Person 'Fred'>]
+
+    >>> [load(t, ix, {}) for t in ix.findValueTokens(
+    ...     'subjects',
+    ...     q({'reltype': 'has the role of',
+    ...       'objects': roles['Project Manager'],
+    ...       'context': projects['zope.org redesign']}))]
     [<Person 'Fred'>]
 
 If we want to find all the relationships for which Fred is a subject, we can
@@ -463,8 +507,9 @@ want to use the data in a way that the other search methods don't support.
 returns a set (based on the btree family for relationships in the index) of
 relationship tokens that match it, intransitively.
 
-    >>> res = list(
-    ...     ix.findRelationshipTokenSets(q({'subjects': people['Fred']})))
+    >>> res = ix.findRelationshipTokenSets(q({'subjects': people['Fred']}))
+    >>> res # doctest: +ELLIPSIS
+    <BTrees._IFBTree.IFTreeSet object at ...>
     >>> [intids.getObject(t) for t in res]
     [<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]
 
@@ -472,7 +517,10 @@ relationship tokens that match it, intransitively.
 set (based on the btree family for the value) of value tokens for that
 relationship.
 
-    >>> [load(t, ix, {}) for t in ix.findValueTokenSets(res[0], 'subjects')]
+    >>> res = ix.findValueTokenSets(list(res)[0], 'subjects')
+    >>> res # doctest: +ELLIPSIS
+    <BTrees._IFBTree.IFTreeSet object at ...>
+    >>> [load(t, ix, {}) for t in res]
     [<Person 'Fred'>]
 
 The apply method, part of the zope.index.interfaces.IIndexSearch interface,
@@ -497,7 +545,7 @@ Here, we ask for the current known roles on the zope.org redesign.
 
 Ideally, this would fail, because the tokens, while integers, are not actually
 mergable with a intid-based catalog results.  However, the index only complains
-if it can tell that the returning set is not an IFTreeSet.
+if it can tell that the returning set is not an IFTreeSet or IFSet.
 
 Here, we ask for the relationships that have the 'has the role of' type.
 
@@ -530,7 +578,8 @@ relationships.
 
 `findRelationshipChains` and `findRelationshipTokenChains` let you find
 transitive relationship paths. Right now a single relationship--a single
-point--can't create much of a line. So first, here's a useless example:
+point--can't create much of a line. So first, here's a somewhat useless
+example:
 
     >>> [[intids.getObject(t) for t in path] for path in
     ...  ix.findRelationshipTokenChains(
@@ -539,7 +588,7 @@ point--can't create much of a line. So first, here's a useless example:
     [[<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]]
 
 That's useless, because there's no chance of it being a transitive search, and
-so you might as well use findRelationships.  This will become more
+so you might as well use findRelationshipTokenSets.  This will become more
 interesting later on.
 
 Here's the same example with findRelationshipChains, which resolves the
@@ -586,7 +635,9 @@ a relationship with a 'commissioned' relationship type, and a company context.
 Notice that there are two ways of adding indexes, by the way.  We have already
 seen that the index has an 'index' method that takes a relationship.  Here we
 use 'index_doc' which is a method defined in zope.index.interfaces.IInjection
-that requires the token to already be generated.
+that requires the token to already be generated.  Since we are using intids
+to tokenize the relationships, we must add them to the ZODB app object to give
+them the possibility of a connection.
 
     >>> app['abeAndBran'] = rel = Relationship(
     ...     (people['Abe'],), 'manages', (people['Bran'],))
@@ -619,7 +670,8 @@ The index does not support any other "empty" values at this time.
     [<Person 'Bran'>]
 
 Note that the index does not currently support searching for relationships that
-have any value, or one of a set of values.
+have any value, or one of a set of values.  This may be added at a later date;
+the spelling for such queries are among the more troublesome parts.
 
 Working with transitive searches
 ================================
@@ -638,6 +690,9 @@ people, we'll create three heirarchies like this:
     H     G                       |
     |                             Z
     I
+
+This means that, for instance, person "A" ("Abe") manages "B" ("Bran") and "C"
+("Cathy").
 
 We already have a relationship from Abe to Bran, so we'll only be adding the
 rest.
