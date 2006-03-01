@@ -141,6 +141,10 @@ class IIndex(zope.index.interfaces.IInjection,
         on the btree family for relationships in the index) of relationship
         tokens that match it.  Intransitive."""
 
+    def findRelationships(query):
+        """Given a single dictionary of {indexName: token}, return an iterable
+        of relationships that match the query intransitively"""
+
     def findValueTokenSets(reltoken, name):
         """Given a relationship token and a value name, return a set (based on
         the btree family for the value) of value tokens for that relationship.

@@ -459,6 +459,9 @@ defines several searching methods:
   that match my query?" and is particularly useful for low-level usage of the
   index data structures;
 
+- `findRelationships` asks the same question, but returns an iterable of
+  relationships rather than a set of tokens;
+
 - `findValueTokenSets` asks "what are the value tokens for this particular
   indexed name and this relationship token?" and is useful for low-level
   usage of the index data structures such as transitive query factories; and
@@ -511,6 +514,11 @@ relationship tokens that match it, intransitively.
     >>> res # doctest: +ELLIPSIS
     <BTrees._IFBTree.IFTreeSet object at ...>
     >>> [intids.getObject(t) for t in res]
+    [<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]
+
+`findRelationships` does the same thing but with resolving the relationships.
+
+    >>> list(ix.findRelationships(q({'subjects': people['Fred']})))
     [<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]
 
 `findValueTokenSets`, given a relationship token and a value name, returns a

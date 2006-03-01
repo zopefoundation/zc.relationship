@@ -333,6 +333,10 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         cache = {}
         return (self._relTools['load'](t, self, cache) for t in tokens)
 
+    def findRelationships(self, query):
+        return self.resolveRelationshipTokens(
+            self.findRelationshipTokenSets(query))
+
     def findRelationshipTokenSets(self, query):
         res = self._relData(query)
         if res is None:
