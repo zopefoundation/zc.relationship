@@ -890,7 +890,8 @@ In the diagram, left-hand lines indicate "taught" and right-hand lines indicate
    \ /
     M
 
-should be read as "Emily taught Mary the lessons of Ygritte".
+should be read as "Emily taught Mary the lessons of Ygritte".  Here's the full
+diagram:
 
             C   L
              \ /
@@ -1056,6 +1057,13 @@ targetSearch.
      "[<(<Person 'Rob'>,) manages
         (<Person 'Sam'>, <Person 'Terry'>, <Person 'Uther'>)>,
        <(<Person 'Uther'>, <Person 'Xen'>) manages (<Person 'Ygritte'>,)>]"] 
+
+Here's a query with no results:
+
+    >>> len(list(ix.findRelationshipTokenChains(
+    ...     q({'reltype': 'manages', 'subjects': people['Rob']}),
+    ...     targetQuery=q({'objects': companies['Zookd']}))))
+    0
 
 `isLinked` takes the same arguments as all of the other transitive-aware
 methods.  For instance, Rob and Ygritte are transitively linked, but Abe and

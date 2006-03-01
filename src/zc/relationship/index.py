@@ -402,6 +402,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         else:
             checkFilter = None
         targetCache = {}
+        checkTargetFilter = None
         if targetQuery is not None:
             targetData = self._relData(targetQuery)
             if targetData is None:
@@ -417,8 +418,6 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         elif targetFilter is not None:
             def checkTargetFilter(relchain, query):
                 return targetFilter(relchain, query, self, targetCache)
-        else:
-            checkTargetFilter = None
         getQueries = None
         if transitiveQueriesFactory is None:
             transitiveQueriesFactory = self.defaultTransitiveQueriesFactory
