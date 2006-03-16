@@ -335,9 +335,9 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
 
     def findRelationships(self, query):
         return self.resolveRelationshipTokens(
-            self.findRelationshipTokenSets(query))
+            self.findRelationshipTokenSet(query))
 
-    def findRelationshipTokenSets(self, query):
+    def findRelationshipTokenSet(self, query):
         res = self._relData(query)
         if res is None:
             res = self._relTools['TreeSet']()

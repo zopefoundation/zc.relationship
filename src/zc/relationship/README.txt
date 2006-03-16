@@ -130,7 +130,7 @@ be using intid tokens for the relationships, and so 'dumpRel' and
 'relFamily' defaults to BTrees.IFBTree.
 
 If relationship tokens (from 'findRelationshipChains' or 'apply' or
-'findRelationshipTokenSets', or in a filter to most of the search methods) are
+'findRelationshipTokenSet', or in a filter to most of the search methods) are
 to be merged with other catalog results, relationship tokens should be based
 on intids, as in the default.  For instance, if some relationships are only
 available to some users on the basis of security, and you keep an index of
@@ -455,7 +455,7 @@ defines several searching methods:
 
 - `isLinked` asks "does a relationship like this exist?";
 
-- `findRelationshipTokenSets` asks "what are the intransitive relationships
+- `findRelationshipTokenSet` asks "what are the intransitive relationships
   that match my query?" and is particularly useful for low-level usage of the
   index data structures;
 
@@ -467,7 +467,7 @@ defines several searching methods:
   usage of the index data structures such as transitive query factories; and
 
 - the standard zope.index method `apply` essentially exposes the
-  `findRelationshipTokenSets` and `findValueTokens` methods via a query object
+  `findRelationshipTokenSet` and `findValueTokens` methods via a query object
   spelling.
 
 `findRelationshipChains` and `findRelationshipTokenChains` are paired methods,
@@ -502,15 +502,15 @@ and then with findTokenValues.
     [<Person 'Fred'>]
 
 If we want to find all the relationships for which Fred is a subject, we can
-use `findRelationshipTokenSets`.  It, combined with `findValueTokenSets`, is
+use `findRelationshipTokenSet`.  It, combined with `findValueTokenSets`, is
 useful for querying the index data structures at a fairly low level, when you
 want to use the data in a way that the other search methods don't support.
 
-`findRelationshipTokenSets`, given a single dictionary of {indexName: token},
+`findRelationshipTokenSet`, given a single dictionary of {indexName: token},
 returns a set (based on the btree family for relationships in the index) of
 relationship tokens that match it, intransitively.
 
-    >>> res = ix.findRelationshipTokenSets(q({'subjects': people['Fred']}))
+    >>> res = ix.findRelationshipTokenSet(q({'subjects': people['Fred']}))
     >>> res # doctest: +ELLIPSIS
     <BTrees._IFBTree.IFTreeSet object at ...>
     >>> [intids.getObject(t) for t in res]
@@ -533,7 +533,7 @@ relationship.
 
 The apply method, part of the zope.index.interfaces.IIndexSearch interface,
 can essentially only duplicate the `findValueTokens` and
-`findRelationshipTokenSets` search calls.  The only additional functionality
+`findRelationshipTokenSet` search calls.  The only additional functionality
 is that the results always are IFBTree sets: if the tokens requested are not
 in an IFBTree set (on the basis of the 'btree' key during instantiation, for
 instance) then the index raises a ValueError.  A wrapper dict specifies the
@@ -596,7 +596,7 @@ example:
     [[<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]]
 
 That's useless, because there's no chance of it being a transitive search, and
-so you might as well use findRelationshipTokenSets.  This will become more
+so you might as well use findRelationshipTokenSet.  This will become more
 interesting later on.
 
 Here's the same example with findRelationshipChains, which resolves the
@@ -818,7 +818,7 @@ Uther, in addition to Xen.
     >>> s = set(intids.getId(r) for r in app.values()
     ...         if IRelationship.providedBy(r))
     >>> relset = list(
-    ...     ix.findRelationshipTokenSets(q({'subjects': people['Xen']})))
+    ...     ix.findRelationshipTokenSet(q({'subjects': people['Xen']})))
     >>> len(relset)
     1
     >>> s.remove(relset[0])
@@ -1211,7 +1211,7 @@ Here we change the zope.org project manager from Fred to Emily.
     ...       'objects': roles['Project Manager'],
     ...       'context': projects['zope.org redesign']}))]
     [<Person 'Fred'>]
-    >>> rel = intids.getObject(list(ix.findRelationshipTokenSets(
+    >>> rel = intids.getObject(list(ix.findRelationshipTokenSet(
     ...     q({'reltype': 'has the role of',
     ...       'objects': roles['Project Manager'],
     ...       'context': projects['zope.org redesign']})))[0])
@@ -1237,7 +1237,7 @@ disguise' scenario.
     8
     >>> interfaces.ICircularRelationshipPath.providedBy(res[7])
     True
-    >>> rel = intids.getObject(list(ix.findRelationshipTokenSets(
+    >>> rel = intids.getObject(list(ix.findRelationshipTokenSet(
     ...     q({'subjects': people['Gary'], 'reltype': 'manages',
     ...        'objects': people['Abe']})))[0])
     >>> ix.unindex(rel) # == ix.unindex_doc(intids.getId(rel))
