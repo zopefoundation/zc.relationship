@@ -55,7 +55,7 @@ class TransposingTransitiveQueriesFactory(persistent.Persistent):
         else:
             static = cache['static']
         if dynamic:
-            for r in index.findValueTokenSets(relchain[-1], dynamic[1]):
+            for r in index.findValueTokenSet(relchain[-1], dynamic[1]):
                 res = {dynamic[0]: r}
                 res.update(static)
                 yield res
@@ -343,7 +343,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             res = self._relTools['TreeSet']()
         return res
 
-    def findValueTokenSets(self, reltoken, name):
+    def findValueTokenSet(self, reltoken, name):
         res = self._reltoken_name_TO_objtokenset.get((reltoken, name))
         if res is None:
             res = self._attrs[name]['TreeSet']()

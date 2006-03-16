@@ -462,7 +462,7 @@ defines several searching methods:
 - `findRelationships` asks the same question, but returns an iterable of
   relationships rather than a set of tokens;
 
-- `findValueTokenSets` asks "what are the value tokens for this particular
+- `findValueTokenSet` asks "what are the value tokens for this particular
   indexed name and this relationship token?" and is useful for low-level
   usage of the index data structures such as transitive query factories; and
 
@@ -502,7 +502,7 @@ and then with findTokenValues.
     [<Person 'Fred'>]
 
 If we want to find all the relationships for which Fred is a subject, we can
-use `findRelationshipTokenSet`.  It, combined with `findValueTokenSets`, is
+use `findRelationshipTokenSet`.  It, combined with `findValueTokenSet`, is
 useful for querying the index data structures at a fairly low level, when you
 want to use the data in a way that the other search methods don't support.
 
@@ -521,11 +521,11 @@ relationship tokens that match it, intransitively.
     >>> list(ix.findRelationships(q({'subjects': people['Fred']})))
     [<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]
 
-`findValueTokenSets`, given a relationship token and a value name, returns a
+`findValueTokenSet`, given a relationship token and a value name, returns a
 set (based on the btree family for the value) of value tokens for that
 relationship.
 
-    >>> res = ix.findValueTokenSets(list(res)[0], 'subjects')
+    >>> res = ix.findValueTokenSet(list(res)[0], 'subjects')
     >>> res # doctest: +ELLIPSIS
     <BTrees._IFBTree.IFTreeSet object at ...>
     >>> [load(t, ix, {}) for t in res]
@@ -970,7 +970,7 @@ findValues.
     ...         static = cache['static']
     ...         translate = cache['translate']
     ...     if dynamic:
-    ...         for r in index.findValueTokenSets(relchain[-1], dynamic[1]):
+    ...         for r in index.findValueTokenSet(relchain[-1], dynamic[1]):
     ...             res = {dynamic[0]: translate(r)}
     ...             res.update(static)
     ...             yield res
