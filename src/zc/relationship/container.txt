@@ -57,25 +57,14 @@ but it could be from the keyref or the intid modules.
     True
 
 The containers can be used as parts of other objects, or as standalone local
-utilities.  Here's an example of adding one as a local utilty.  Note that
-relationship containers do not implement ILocalUtility by default; this is
-usually done with the "utility" zcml tag or the "implements" zcml tag.  We'll
-specify it here by hand.
+utilities.  Here's an example of adding one as a local utilty.
 
-    >>> from zope.app.component.interfaces import ILocalUtility
-    >>> from zope import interface
-    >>> interface.alsoProvides(container, ILocalUtility)
     >>> sm = app.getSiteManager()
-    >>> package = sm['default']
-    >>> package['lineage_relationship'] = container
-    >>> import zope.app.utility
-    >>> registration = zope.app.utility.UtilityRegistration(
-    ...     'lineage', interfaces.IRelationshipContainer,
-    ...     package['lineage_relationship'])
-    >>> key = package.registrationManager.addRegistration(registration)
-    >>> import zope.app.component.interfaces.registration
-    >>> registration.status = (
-    ...     zope.app.component.interfaces.registration.ActiveStatus)
+    >>> sm['lineage_relationship'] = container
+    >>> import zope.component.interfaces
+    >>> registry = zope.component.interfaces.IComponentRegistry(sm)
+    >>> registry.registerUtility(
+    ...     container, interfaces.IRelationshipContainer, 'lineage')
     >>> import transaction
     >>> transaction.commit()
 

@@ -266,20 +266,12 @@ the index has a valid __parent__ that is itself connected transitively to a
 site manager with the desired intid utility, everything should work fine, so
 no need to install it as utility.  This is just an example.
 
-    >>> from zope.app.component.interfaces import ILocalUtility
     >>> from zope import interface
-    >>> interface.alsoProvides(ix, ILocalUtility)
     >>> sm = app.getSiteManager()
-    >>> package = sm['default']
-    >>> package['rel_index'] = ix
-    >>> import zope.app.utility
-    >>> registration = zope.app.utility.UtilityRegistration(
-    ...     'rel_index', interfaces.IIndex,
-    ...     package['rel_index'])
-    >>> key = package.registrationManager.addRegistration(registration)
-    >>> import zope.app.component.interfaces.registration
-    >>> registration.status = (
-    ...     zope.app.component.interfaces.registration.ActiveStatus)
+    >>> sm['rel_index'] = ix
+    >>> import zope.component.interfaces
+    >>> registry = zope.component.interfaces.IComponentRegistry(sm)
+    >>> registry.registerUtility(ix, interfaces.IIndex)
     >>> import transaction
     >>> transaction.commit()
 

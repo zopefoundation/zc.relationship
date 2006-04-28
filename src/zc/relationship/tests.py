@@ -28,17 +28,15 @@ from ZODB.tests.util import DB
 
 from zope import component, interface
 import zope.component.interfaces
-from zope.component.tests import placelesssetup
+import zope.location.interfaces
+from zope.app.testing import placelesssetup
 from zope.app.keyreference.persistent import (
     KeyReferenceToPersistent, connectionOfPersistent)
 from zope.app.folder import rootFolder
-import zope.app.utility
 from zope.app.component.site import LocalSiteManager, SiteManagerAdapter
 from zope.app.intid import IntIds
 from zope.app.intid.interfaces import IIntIds
 import zope.app.component.interfaces.registration
-import zope.app.annotation.interfaces
-import zope.app.annotation.attribute
 
 from zc.relationship import intid, keyref, shared
 
@@ -53,8 +51,8 @@ def keyrefSetUp(test):
     component.provideAdapter(KeyReferenceToPersistent, adapts=(IPersistent,))
     component.provideAdapter(
         SiteManagerAdapter,
-        adapts=(None,),
-        provides=zope.component.interfaces.ISiteManager)
+        (zope.location.interfaces.ILocation,),
+        zope.component.interfaces.IComponentLookup)
     component.provideAdapter(
         connectionOfPersistent,
         adapts=(IPersistent,),
@@ -75,13 +73,9 @@ def intidSetUp(test):
     keyrefSetUp(test)
     app = test.globs['app']
     sm = app.getSiteManager()
-    package = sm['default']
-    package['intids'] = IntIds()
-    registration = zope.app.utility.UtilityRegistration(
-        '', IIntIds, package['intids'])
-    key = package.registrationManager.addRegistration(registration)
-    registration.status = (
-        zope.app.component.interfaces.registration.ActiveStatus)
+    sm['intids'] = IntIds()
+    registry = zope.component.interfaces.IComponentRegistry(sm)
+    registry.registerUtility(sm['intids'], IIntIds)
     transaction.commit()
     test.globs['Container'] = intid.Container
     test.globs['Relationship'] = shared.Relationship
