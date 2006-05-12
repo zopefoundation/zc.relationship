@@ -1,3 +1,4 @@
+import re
 import types
 
 import persistent
@@ -80,19 +81,15 @@ def resolveToken(token, index, cache):
 ##############################################################################
 # the relationship index
 
-def getTreeSet(module):
-    for nm in dir(module):
-        if nm.endswith('TreeSet'):
-            return getattr(module, nm)
-    raise ValueError('No TreeSet found in module')
-
 def getModuleTools(module):
     res = {}
-    res['TreeSet'] = getTreeSet(module)
-    res['diff'] = module.difference
-    res['union'] = module.union
-    res['intersect'] = module.intersection
-    res['multiunion'] = getattr(module, 'multiunion', None)
+    for nm in dir(module):
+        if not nm.startswith('_') and not nm.endswith('Iterator'):
+            if re.match('[A-Z][A-Z]', nm):
+                res[nm[2:]] = getattr(module, nm)
+            else:
+                res[nm] = getattr(module, nm)
+    res.setdefault('multiunion', None)
     return res
 
 class Index(persistent.Persistent, zope.app.container.contained.Contained):
@@ -134,6 +131,9 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             _attrs[res['name']] = res
             res['dump'] = data.get('dump', generateToken)
             res['load'] = data.get('load', resolveToken)
+            if (res['dump'] is None) ^ (res['load'] is None):
+                raise ValueError(
+                    "either both of 'dump' and 'load' must be None, or neither")
             res['interface'] = val.interface
             res['multiple'] = data.get('multiple', False)
             res['call'] = zope.interface.interfaces.IMethod.providedBy(val)
@@ -159,11 +159,18 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         else:
             values = None
         if values is None:
-            return values, values
+            return values, values, False
+        elif data['dump'] is None and isinstance(values, (
+            data['TreeSet'], data['BTree'], data['Bucket'], data['Set'])):
+            return values, values, True
         else:
             cache = {}
-            return values, data['TreeSet'](
-                data['dump'](o, self, cache) for o in values)
+            if data['dump'] is None:
+                tokens = data['TreeSet'](values)
+            else:
+                tokens = data['TreeSet'](
+                    data['dump'](o, self, cache) for o in values)
+            return values, tokens, False
 
     def _add(self, relToken, tokens, name, fullTokens):
         self._reltoken_name_TO_objtokenset[(relToken, name)] = fullTokens
@@ -205,16 +212,40 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         if relToken in self._relTokens:
             # reindex
             for data in self._attrs.values():
-                values, newTokens = self._getValuesAndTokens(rel, data)
+                values, newTokens, optimization = self._getValuesAndTokens(
+                    rel, data)
                 oldTokens = self._reltoken_name_TO_objtokenset[
                     (relToken, data['name'])]
                 if newTokens != oldTokens:
                     if newTokens is not None and oldTokens is not None:
-                        added = data['diff'](newTokens, oldTokens)
-                        removed = data['diff'](oldTokens, newTokens)
+                        added = data['difference'](newTokens, oldTokens)
+                        removed = data['difference'](oldTokens, newTokens)
+                        if optimization:
+                            # the goal of this optimization is to not have to
+                            # recreate a TreeSet (which can be large and
+                            # relatively timeconsuming) when only small changes
+                            # have been made.  We ballpark this by saying
+                            # "if there are only a few removals, do them, and
+                            # then do an update: it's almost certainly a win
+                            # over essentially generating a new TreeSet and
+                            # updating it with *all* values.  On the other
+                            # hand, if there are a lot of removals, it's
+                            # probably quicker just to make a new one."  We
+                            # pick >25 removals, mostly arbitrarily, as our 
+                            # "cut bait" cue.
+                            for ix, t in enumerate(removed):
+                                if ix >= 25: # arbitrary cut-off
+                                    newTokens = data['TreeSet'](newTokens)
+                                    break
+                                oldTokens.remove(t)
+                            else:
+                                oldTokens.update(added)
+                                newTokens = oldTokens
                     else:
                         removed = oldTokens
                         added = newTokens
+                        if optimization:
+                            newTokens = data['TreeSet'](newTokens)
                     self._remove(relToken, removed, data['name'])
                     self._add(relToken, added, data['name'], newTokens)
         else:
@@ -222,7 +253,9 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             for data in self._attrs.values():
                 assert self._reltoken_name_TO_objtokenset.get(
                     (relToken, data['name']), self) is self
-                values, tokens = self._getValuesAndTokens(rel, data)
+                values, tokens, gen = self._getValuesAndTokens(rel, data)
+                if gen:
+                    tokens = data['TreeSet'](tokens)
                 self._add(relToken, tokens, data['name'], tokens)
             self._relTokens.insert(relToken)
             self._relLength.change(1)
@@ -295,7 +328,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         res = {}
         for k, v in query.items():
             data = self._attrs[k]
-            if v is not None:
+            if v is not None and data['dump'] is not None:
                 v = data['dump'](v, self, {})
             res[k] = v
         return res
@@ -304,19 +337,23 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         res = {}
         for k, v in query.items():
             data = self._attrs[k]
-            if v is not None:
+            if v is not None and data['load'] is not None:
                 v = data['load'](v, self, {})
             res[k] = v
         return res
 
     def tokenizeValues(self, values, name):
-        cache = {}
         dump = self._attrs[name]['dump']
+        if dump is None:
+            return values
+        cache = {}
         return (dump(v, self, cache) for v in values)
 
     def resolveValueTokens(self, tokens, name):
-        cache = {}
         load = self._attrs[name]['load']
+        if load is None:
+            return values
+        cache = {}
         return (load(t, self, cache) for t in tokens)
 
     def tokenizeRelationship(self, rel):
@@ -380,7 +417,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                 intersection = self._relTools['TreeSet'](
                     i for i in first_set if i in second_set)
             else:
-                intersection = self._relTools['intersect'](
+                intersection = self._relTools['intersection'](
                     first_set, second_set)
             if self.deactivateSets:
                 self._deactivate(first_set)
@@ -453,7 +490,10 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                    transitiveQueriesFactory=None):
         resolve = self._attrs[resultName]['load']
         if resolve is None:
-            raise RuntimeError('do not know how to resolve tokens', resultName)
+            return self._yieldValueTokens(
+                resultName, *self._parse(
+                    query, maxDepth, filter, targetQuery, targetFilter,
+                    transitiveQueriesFactory))
         return self._yieldValues(
             resultName, *self._parse(
                 query, maxDepth, filter, targetQuery, targetFilter,
