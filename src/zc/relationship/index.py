@@ -134,6 +134,10 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             if (res['dump'] is None) ^ (res['load'] is None):
                 raise ValueError(
                     "either both of 'dump' and 'load' must be None, or neither")
+                # when both load and dump are None, this is a small
+                # optimization that can be a large optimization if the returned
+                # value is one of the main four options of the selected btree
+                # family (BTree, TreeSet, Set, Bucket).
             res['interface'] = val.interface
             res['multiple'] = data.get('multiple', False)
             res['call'] = zope.interface.interfaces.IMethod.providedBy(val)
@@ -162,6 +166,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             return values, values, False
         elif data['dump'] is None and isinstance(values, (
             data['TreeSet'], data['BTree'], data['Bucket'], data['Set'])):
+            # this is the optimization story (see _add)
             return values, values, True
         else:
             cache = {}
@@ -232,7 +237,9 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                             # hand, if there are a lot of removals, it's
                             # probably quicker just to make a new one."  We
                             # pick >25 removals, mostly arbitrarily, as our 
-                            # "cut bait" cue.
+                            # "cut bait" cue.  We don't just do a len of
+                            # removed because lens of btrees are potentially
+                            # expensive.
                             for ix, t in enumerate(removed):
                                 if ix >= 25: # arbitrary cut-off
                                     newTokens = data['TreeSet'](newTokens)
