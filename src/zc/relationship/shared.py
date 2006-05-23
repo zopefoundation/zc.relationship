@@ -112,7 +112,6 @@ class OneToOneRelationship(ImmutableRelationship):
             return self._sources[0]
         def set(self, value):
             self._sources = (value,)
-            import pdb; pdb.set_trace()
             if interfaces.IBidirectionalRelationshipIndex.providedBy(
                 self.__parent__):
                 self.__parent__.reindex(self)
@@ -330,7 +329,7 @@ class Container(AbstractContainer, zope.app.container.btree.BTreeContainer):
     def _generate_id(self, relationship):
         return ''.join(random.sample(
             "abcdefghijklmnopqrtstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890",
-            30)) # 64 ** 30 variations
+            30)) # somewhat less than 64 ** 30 variations (64*63*...*35)
     # end subclass API
 
     def add(self, object):
