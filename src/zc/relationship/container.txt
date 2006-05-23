@@ -115,7 +115,7 @@ examine some relatively simple cases.
     ... # nothingness when _p_deactivate is called
 
 Now there are six direct relationships (all of the relationships point down
-in the diagram):
+in the diagram)::
 
         ob0
         | |\
@@ -540,7 +540,7 @@ Finally, the `reindex` method allows objects already in the container to be
 reindexed.  The default implementation of the relationship objects calls this
 automatically when sources and targets are changed.
 
-To reiterate, the relationships looked like this before.
+To reiterate, the relationships looked like this before. ::
 
         ob0
         | |\
@@ -550,7 +550,7 @@ To reiterate, the relationships looked like this before.
       |
     ob5
 
-We'll switch out ob3 and ob4, so the diagram looks like this.
+We'll switch out ob3 and ob4, so the diagram looks like this. ::
 
         ob0
         | |\
@@ -585,7 +585,7 @@ We'll switch out ob3 and ob4, so the diagram looks like this.
     ['ob0', 'ob1']
 
 The same sort of thing happens if we change sources.  We'll change the
-diagram to look like this.
+diagram to look like this. ::
 
         ob0
         | |\
@@ -630,7 +630,7 @@ relationship paths with relationships that provide a given interface.  The
 
 For instance, imagine that we change the relationships to look like the diagram
 below.  The `xxx` lines indicate a relationship that implements
-ISpecialRelationship.
+ISpecialRelationship. ::
 
         ob0
         x |x
@@ -783,7 +783,7 @@ marked as a cycle.
 Relating Relationships and Relationship Containers
 --------------------------------------------------
 
-Relationships are objects.  We've already shown and discused how this means
+Relationships are objects.  We've already shown and discussed how this means
 that they can implement different interfaces and be annotated.  It also means
 that relationships are first-class objects that can be related themselves.
 This allows relationships that keep track of who created other relationships,
@@ -802,4 +802,4 @@ relationship container return the actual intids.
 
 The containers include three methods for these sorts of use cases:
 `findTargetTokens`, `findSourceTokens`, and `findRelationshipTokens`.  They
-take the same arguments as their simlarly-named cousins.
+take the same arguments as their similarly-named cousins.

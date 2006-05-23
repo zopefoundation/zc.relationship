@@ -599,7 +599,7 @@ relationship tokens itself.
     [(<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>,)]
 
 `isLinked` returns a boolean if there is at least one path that matches the
-search--in fact, the implementation is essentially
+search--in fact, the implementation is essentially ::
 
     try:
         iter(ix.findRelationshipTokenChains(...args...)).next()
@@ -679,7 +679,7 @@ Working with transitive searches
 It's possible to do transitive searches as well.  This can let you find all
 transitive bosses, or transitive subordinates, in our 'manages' relationship
 type.  Let's set up some example relationships.  Using letters to represent our
-people, we'll create three heirarchies like this:
+people, we'll create three hierarchies like this::
 
         A        JK           R
        / \      /  \           
@@ -884,14 +884,14 @@ Bran; Cathy teaches Bran the lessons of Lee; David teaches Abe the lessons of
 Zane; and Emily teaches Mary the lessons of Ygritte.
 
 In the diagram, left-hand lines indicate "taught" and right-hand lines indicate
-"the lessons of", so 
+"the lessons of", so ::
 
   E   Y
    \ /
     M
 
 should be read as "Emily taught Mary the lessons of Ygritte".  Here's the full
-diagram:
+diagram::
 
             C   L
              \ /
@@ -1091,7 +1091,7 @@ in theory, it's infinitely long, because of the cycle.
 The index keeps track of this and stops right when the cycle happens, and right
 before the cycle duplicates any relationships.  It marks the chain that has
 cycle as a special kind of tuple that implements ICircularRelationshipPath.
-the tuple has a 'cycled' attribute that contains the one or more searches
+The tuple has a 'cycled' attribute that contains the one or more searches
 that would be equivalent to following the cycle (given the same transitiveMap).
 
 Let's actually look at the example we described.
@@ -1165,7 +1165,7 @@ Transitive searches can do whatever searches the transitiveQueriesFactory
 returns, which means that complex transitive behavior can be modeled.  For
 instance, imagine genealogical relationships.  Let's say the basic
 relationship is "MALE and FEMALE had CHILDREN".  Walking transitively to get
-ancestors or descendents would need to distinguish between male children and
+ancestors or descendants would need to distinguish between male children and
 female children in order to correctly generate the transitive search.  This
 could be accomplished by resolving each child token and examining the object
 or, probably more efficiently, getting an indexed collection of males and
@@ -1271,7 +1271,7 @@ There are three optimization opportunities built into the index.
 - have the returned value be of the same btree family as the result family.
 
 For some operations, particularly with hundreds or thousands of members in a
-single relationship value, some of these optimzations can speed up some
+single relationship value, some of these optimizations can speed up some
 common-case reindexing work by around 100 times.
 
 The easiest (and perhaps least useful) optimization is that all dump
