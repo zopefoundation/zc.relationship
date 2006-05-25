@@ -235,7 +235,7 @@ followed by the methods we'll use for the 'relationshiptypes' tokens.
     ...
 
 Note that these implementations are completely silly if we actually cared about
-ZODB-based persistence: to even make it half-acceptable we should make the 
+ZODB-based persistence: to even make it half-acceptable we should make the
 counter, lookup, and and relTypes persistently stored somewhere using a
 reasonable persistent data structure.  This is just a demonstration example.
 
@@ -251,12 +251,12 @@ any transitive search.
     >>> ix = index.Index(
     ...     ({'element': IRelationship['subjects'], 'multiple': True,
     ...       'dump': dump, 'load': load},
-    ...      {'element': IRelationship['relationshiptype'], 
+    ...      {'element': IRelationship['relationshiptype'],
     ...       'dump': relTypeDump, 'load': relTypeLoad, 'btree': OIBTree,
     ...       'name': 'reltype'},
     ...      {'element': IRelationship['objects'], 'multiple': True,
     ...       'dump': dump, 'load': load},
-    ...      {'element': IContextAwareRelationship['getContext'], 
+    ...      {'element': IContextAwareRelationship['getContext'],
     ...       'name': 'context'}),
     ...     index.TransposingTransitiveQueriesFactory('subjects', 'objects'))
 
@@ -438,7 +438,7 @@ Basic searching
 ===============
 
 Now we move to the meat of the interface: searching.  The index interface
-defines several searching methods: 
+defines several searching methods:
 
 - `findValues` and `findValueTokens` ask "to what is this related?";
 
@@ -682,7 +682,7 @@ type.  Let's set up some example relationships.  Using letters to represent our
 people, we'll create three hierarchies like this::
 
         A        JK           R
-       / \      /  \           
+       / \      /  \
       B   C    LM   NOP     S T U
      / \  |     |          /| |  \
     D  E  F     Q         V W X   |
@@ -838,7 +838,7 @@ but the targetQuery makes a common case--wanting to find the paths between two
 objects, or if two objects are linked at all, for instance--convenient.
 
 We'll skip over targetQuery for a moment (we'll return when we revisit
-`findRelationshipChains` and `isLinked`), and look at targetFilter.  
+`findRelationshipChains` and `isLinked`), and look at targetFilter.
 targetFilter can be used for many tasks, such as only returning values that
 are in specially annotated relationships, or only returning values that have
 traversed a certain hinge relationship in a two-part search, or other tasks.
@@ -862,7 +862,7 @@ Notice that we specified both maxDepth and targetFilter.  We could have
 received the same output by specifying a targetFilter of `len(relchain)==2`
 and no maxDepth, but there is an important difference in efficiency.  maxDepth
 and filter can reduce the amount of work done by the index because they can
-stop searching after reaching the maxDepth, or failing the filter; the 
+stop searching after reaching the maxDepth, or failing the filter; the
 targetFilter and targetQuery arguments simply hide the results obtained, which
 can reduce a bit of work in the case of getValues but generally don't reduce
 any of the traversal work.
@@ -905,12 +905,12 @@ diagram::
        R
 
 You can see then that the transitive path of Rob's teachers is Mary and Emily,
-but the transitive path of Rob's lessons is Abe, Zane, Bran, and Lee.  
+but the transitive path of Rob's lessons is Abe, Zane, Bran, and Lee.
 
 Transitive queries factories must do extra work when the transitive walk is
 across token types.  We have used the TransposingTransitiveQueriesFactory to
 build our transposers before, but now we need to write a custom one that
-translates the tokens (ooh!  a 
+translates the tokens (ooh!  a
 TokenTranslatingTransposingTransitiveQueriesFactory!  ...maybe we won't go that
 far...).
 
@@ -1008,7 +1008,7 @@ get all of Karyn's subordinates.
      "<Person 'Olaf'>", "<Person 'Perry'>", "<Person 'Quince'>"]
 
 As we return to `findRelationshipChains` and `findRelationshipTokenChains`, we
-also return to the search argument we postponed above: targetQuery.  
+also return to the search argument we postponed above: targetQuery.
 
 The `findRelationshipChains` and `findRelationshipTokenChains` can simply find
 all paths:
@@ -1056,7 +1056,7 @@ targetSearch.
        <(<Person 'Uther'>, <Person 'Xen'>) manages (<Person 'Ygritte'>,)>]",
      "[<(<Person 'Rob'>,) manages
         (<Person 'Sam'>, <Person 'Terry'>, <Person 'Uther'>)>,
-       <(<Person 'Uther'>, <Person 'Xen'>) manages (<Person 'Ygritte'>,)>]"] 
+       <(<Person 'Uther'>, <Person 'Xen'>) manages (<Person 'Ygritte'>,)>]"]
 
 Here's a query with no results:
 
@@ -1161,7 +1161,7 @@ relationship chain will be marked as a cycle.
 Transitively mapping multiple elements
 --------------------------------------
 
-Transitive searches can do whatever searches the transitiveQueriesFactory 
+Transitive searches can do whatever searches the transitiveQueriesFactory
 returns, which means that complex transitive behavior can be modeled.  For
 instance, imagine genealogical relationships.  Let's say the basic
 relationship is "MALE and FEMALE had CHILDREN".  Walking transitively to get
@@ -1276,7 +1276,7 @@ common-case reindexing work by around 100 times.
 
 The easiest (and perhaps least useful) optimization is that all dump
 calls and all load calls generated by a single operation share a cache
-dictionary per call type (dump/load), per indexed relationship value. 
+dictionary per call type (dump/load), per indexed relationship value.
 Therefore, for instance, we could stash an intids utility, so that we
 only had to do a utility lookup once, and thereafter it was only a
 single dictionary lookup. This is what the default `generateToken` and
@@ -1291,12 +1291,12 @@ indexed attribute descriptions explicitly set to None.
     >>> ix = index.Index(
     ...     ({'element': IRelationship['subjects'], 'multiple': True,
     ...       'dump': None, 'load': None},
-    ...      {'element': IRelationship['relationshiptype'], 
+    ...      {'element': IRelationship['relationshiptype'],
     ...       'dump': relTypeDump, 'load': relTypeLoad, 'btree': OIBTree,
     ...       'name': 'reltype'},
     ...      {'element': IRelationship['objects'], 'multiple': True,
     ...       'dump': None, 'load': None},
-    ...      {'element': IContextAwareRelationship['getContext'], 
+    ...      {'element': IContextAwareRelationship['getContext'],
     ...       'name': 'context'}),
     ...     index.TransposingTransitiveQueriesFactory('subjects', 'objects'))
     ...
@@ -1315,12 +1315,12 @@ for some applications.
     >>> ix = index.Index(
     ...     ({'element': IRelationship['subjects'], 'multiple': True,
     ...       'dump': None, 'load': None},
-    ...      {'element': IRelationship['relationshiptype'], 
+    ...      {'element': IRelationship['relationshiptype'],
     ...       'dump': relTypeDump, 'load': relTypeLoad, 'btree': OIBTree,
     ...       'name': 'reltype'},
     ...      {'element': IRelationship['objects'], 'multiple': True,
     ...       'dump': None, 'load': None},
-    ...      {'element': IContextAwareRelationship['getContext'], 
+    ...      {'element': IContextAwareRelationship['getContext'],
     ...       'name': 'context'}),
     ...     index.TransposingTransitiveQueriesFactory('subjects', 'objects'))
     ...
