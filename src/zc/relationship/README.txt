@@ -621,6 +621,60 @@ So, we can say
 This is reasonably useful as is, to test basic assertions.  It also works with
 transitive searches, as we will see below.
 
+
+An even simpler example
+-----------------------
+
+(This was added to test that searching for a simple relationship works
+even when the transitive query factory is not set.)
+
+Let's create a very simple relation type, using strings as the source
+and target types:
+
+  >>> class IStringRelation(interface.Interface):
+  ...     name = interface.Attribute("The name of the value.")
+  ...     value = interface.Attribute("The value associated with the name.")
+
+  >>> class StringRelation(persistent.Persistent, Contained):
+  ...     interface.implements(IStringRelation)
+  ...
+  ...     def __init__(self, name, value):
+  ...         self.name = name
+  ...         self.value = value
+
+  >>> app[u"string-relation-1"] = StringRelation("name1", "value1")
+  >>> app[u"string-relation-2"] = StringRelation("name2", "value2")
+
+  >>> transaction.commit()
+
+We can now create an index that uses these:
+
+  >>> from BTrees import OOBTree
+
+  >>> sx = index.Index(
+  ...     ({"element": IStringRelation["name"],
+  ...       "load": None, "dump": None, "btree": OOBTree},
+  ...      {"element": IStringRelation["value"],
+  ...       "load": None, "dump": None, "btree": OOBTree},
+  ...      ))
+
+  >>> app["sx"] = sx
+  >>> transaction.commit()
+
+And we'll add the relations to the index:
+
+  >>> app["sx"].index(app["string-relation-1"])
+  >>> app["sx"].index(app["string-relation-2"])
+
+Getting a relationship back out should be very simple.  Let's look for
+all the values associates with "name1":
+
+  >>> query = sx.tokenizeQuery({"name": "name1"})
+  >>> list(sx.findValues("value", query))
+  ['value1']
+
+
+
 Searching for empty sets
 ------------------------
 

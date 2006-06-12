@@ -470,7 +470,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         if transitiveQueriesFactory is None:
             transitiveQueriesFactory = self.defaultTransitiveQueriesFactory
         if transitiveQueriesFactory is None:
-            if maxDepth != 1:
+            if maxDepth != 1 and maxDepth is not None:
                 raise ValueError(
                     'if maxDepth != 1, transitiveQueriesFactory must be '
                     'available')
