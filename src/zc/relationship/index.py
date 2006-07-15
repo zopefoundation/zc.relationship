@@ -67,15 +67,13 @@ class TransposingTransitiveQueriesFactory(persistent.Persistent):
 def generateToken(obj, index, cache):
     intids = cache.get('intids')
     if intids is None:
-        intids = cache['intids'] = component.getUtility(
-            IIntIds, context=index)
+        intids = cache['intids'] = component.getUtility(IIntIds)
     return intids.register(obj)
 
 def resolveToken(token, index, cache):
     intids = cache.get('intids')
     if intids is None:
-        intids = cache['intids'] = component.getUtility(
-            IIntIds, context=index)
+        intids = cache['intids'] = component.getUtility(IIntIds)
     return intids.getObject(token)
 
 ##############################################################################

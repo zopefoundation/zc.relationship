@@ -62,6 +62,8 @@ def keyrefSetUp(test):
     test.globs['root'] = root = conn.root()
     test.globs['app'] = app = root['app'] = rootFolder()
     app.setSiteManager(LocalSiteManager(app))
+    zope.app.component.hooks.setSite(app)
+    zope.app.component.hooks.setHooks()
     for i in range(30):
         id = 'ob%d' % i
         app[id] = Demo(id)
@@ -81,6 +83,8 @@ def intidSetUp(test):
     test.globs['Relationship'] = shared.Relationship
 
 def tearDown(test):
+    zope.app.component.hooks.resetHooks()
+    zope.app.component.hooks.setSite()
     transaction.abort()
     test.globs['db'].close()
     placelesssetup.tearDown()
