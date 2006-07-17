@@ -57,6 +57,9 @@ class IIndex(zope.index.interfaces.IInjection,
         """obtains the token for the relationship and unindexes (calls
         IInjection.unindex_doc)"""
 
+    def __contains__(relationship):
+        """returns whether the relationship is in the index"""
+
     def findValueTokens(resultName, query, maxDepth=None, filter=None,
                         targetQuery=None, targetFilter=None,
                         transitiveQueriesFactory=None):

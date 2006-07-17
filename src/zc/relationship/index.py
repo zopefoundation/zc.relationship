@@ -268,13 +268,17 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
     def unindex(self, rel):
         self.unindex_doc(self._relTools['dump'](rel, self, {}))
 
+    def __contains__(self, rel):
+        return self.tokenizeRelationship(rel) in self._relTokens   
+
     def unindex_doc(self, relToken):
-        for data in self._attrs.values():
-            tokens = self._reltoken_name_TO_objtokenset.pop(
-                (relToken, data['name']))
-            self._remove(relToken, tokens, data['name'])
-        self._relTokens.remove(relToken)
-        self._relLength.change(-1)
+        if relToken in self._relTokens:
+            for data in self._attrs.values():
+                tokens = self._reltoken_name_TO_objtokenset.pop(
+                    (relToken, data['name']))
+                self._remove(relToken, tokens, data['name'])
+            self._relTokens.remove(relToken)
+            self._relLength.change(-1)
 
     def documentCount(self):
         return self._relLength.value

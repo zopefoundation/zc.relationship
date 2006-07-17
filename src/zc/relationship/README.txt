@@ -1388,3 +1388,66 @@ for some applications.
 
 Remember that BTrees (not just BTreeSets) can be used for these values: the keys
 are used as the values in that case.
+
+__contains__ and Unindexing
+=============================
+
+You can test whether a relationship is in an index with __contains__.  Note
+that this uses the actual relationship, not the relationship token.
+
+    >>> ix = index.Index(
+    ...     ({'element': IRelationship['subjects'], 'multiple': True,
+    ...       'dump': dump, 'load': load},
+    ...      {'element': IRelationship['relationshiptype'],
+    ...       'dump': relTypeDump, 'load': relTypeLoad, 'btree': OIBTree,
+    ...       'name': 'reltype'},
+    ...      {'element': IRelationship['objects'], 'multiple': True,
+    ...       'dump': dump, 'load': load},
+    ...      {'element': IContextAwareRelationship['getContext'],
+    ...       'name': 'context'}),
+    ...     index.TransposingTransitiveQueriesFactory('subjects', 'objects'))
+    >>> ix.documentCount()
+    0
+    >>> app['fredisprojectmanager'].subjects = (people['Fred'],)
+    >>> ix.index(app['fredisprojectmanager'])
+    >>> ix.index(app['another_rel'])
+    >>> ix.documentCount()
+    2
+    >>> app['fredisprojectmanager'] in ix
+    True
+    >>> list(ix.findValues(
+    ...     'subjects',
+    ...     q({'reltype': 'has the role of',
+    ...       'objects': roles['Project Manager'],
+    ...       'context': projects['zope.org redesign']})))
+    [<Person 'Fred'>]
+
+    >>> app['another_rel'] in ix
+    True
+
+    >>> app['abeAndBran'] in ix
+    False
+
+As noted, you can unindex using unindex(relationship) or
+unindex_doc(relationship token).
+
+    >>> ix.unindex_doc(ix.tokenizeRelationship(app['fredisprojectmanager']))
+    >>> app['fredisprojectmanager'] in ix
+    False
+    >>> list(ix.findValues(
+    ...     'subjects',
+    ...     q({'reltype': 'has the role of',
+    ...       'objects': roles['Project Manager'],
+    ...       'context': projects['zope.org redesign']})))
+    []
+
+    >>> ix.unindex(app['another_rel'])
+    >>> app['another_rel'] in ix
+    False
+
+As defined by zope.index.interfaces.IInjection, if the relationship is
+not in the index then calling unindex_doc is a no-op; the same holds
+true for unindex.
+
+    >>> ix.unindex(app['abeAndBran'])
+    >>> ix.unindex_doc(ix.tokenizeRelationship(app['abeAndBran']))
