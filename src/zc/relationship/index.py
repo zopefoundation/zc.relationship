@@ -80,14 +80,13 @@ def resolveToken(token, index, cache):
 # the relationship index
 
 def getModuleTools(module):
-    res = {}
+    res = {'multiunion': None}
     for nm in dir(module):
         if not nm.startswith('_') and not nm.endswith('Iterator'):
             if re.match('[A-Z][A-Z]', nm):
                 res[nm[2:]] = getattr(module, nm)
             else:
                 res[nm] = getattr(module, nm)
-    res.setdefault('multiunion', None)
     return res
 
 class Index(persistent.Persistent, zope.app.container.contained.Contained):
