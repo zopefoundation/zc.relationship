@@ -121,7 +121,7 @@ class OneToManyRelationship(ImmutableRelationship):
     interface.implements(interfaces.IOneToManyRelationship)
 
     def __init__(self, source, targets):
-        super(OneToOneRelationship, self).__init__((source,), targets)
+        super(OneToManyRelationship, self).__init__((source,), targets)
 
     @apply
     def source():
@@ -149,7 +149,7 @@ class ManyToOneRelationship(ImmutableRelationship):
     interface.implements(interfaces.IManyToOneRelationship)
 
     def __init__(self, sources, target):
-        super(OneToOneRelationship, self).__init__(sources, (target,))
+        super(OneToManyRelationship, self).__init__(sources, (target,))
 
     @apply
     def sources():
