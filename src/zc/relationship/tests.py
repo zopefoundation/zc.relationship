@@ -26,7 +26,7 @@ from persistent.interfaces import IPersistent
 from ZODB.interfaces import IConnection
 from ZODB.tests.util import DB
 
-from zope import component, interface
+from zope import component
 import zope.component.interfaces
 import zope.location.interfaces
 from zope.app.testing import placelesssetup
@@ -36,7 +36,7 @@ from zope.app.folder import rootFolder
 from zope.app.component.site import LocalSiteManager, SiteManagerAdapter
 from zope.app.intid import IntIds
 from zope.app.intid.interfaces import IIntIds
-import zope.app.component.interfaces.registration
+import zope.app.component.hooks
 
 from zc.relationship import intid, keyref, shared
 

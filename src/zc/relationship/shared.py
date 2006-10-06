@@ -18,7 +18,7 @@ $Id$
 import random
 
 import persistent
-from zope import interface, component
+from zope import interface
 import zope.app.container.contained
 import zope.app.container.btree
 

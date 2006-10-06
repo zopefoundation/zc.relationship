@@ -15,12 +15,10 @@
 
 $Id$
 """
-from zope import interface, component
-from BTrees import IOBTree, OOBTree, OIBTree, IIBTree
-
-from zope.app.intid.interfaces import IIntIds
+from zope import interface
 
 from zc.relationship import interfaces, shared
+
 
 def Container():
     res = shared.Container()
