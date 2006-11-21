@@ -109,9 +109,9 @@ class OneToOneRelationship(ImmutableRelationship):
     @apply
     def target():
         def get(self):
-            return self._sources[0]
+            return self._targets[0]
         def set(self, value):
-            self._sources = (value,)
+            self._targets = (value,)
             if interfaces.IBidirectionalRelationshipIndex.providedBy(
                 self.__parent__):
                 self.__parent__.reindex(self)
