@@ -11,9 +11,9 @@ used with pluggable token generation schemes, and generally tries to provide
 a relatively policy-free tool.  It is expected to be used primarily as an
 engine for more specialized and constrained tools and APIs.
 
-The relationship containers use the index to manage two-way relationships,
-using a derived mapping interface.  It is a good example of the index in
-standalone use.
+The relationship containers use the index to manage two-way
+relationships, using a derived mapping interface.  It is a reasonable
+example of the index in standalone use.
 
 This document describes the relationship index.  See container.txt for
 documentation of the relationship container.
@@ -1095,7 +1095,7 @@ If we use a targetQuery with `findRelationshipChains`, you can find all paths
 between two searches. For instance, consider the paths between Rob and
 Ygritte.  While a `findValues` search would only include Rob once if asked to
 search for supervisors, there are two paths.  These can be found with the
-targetSearch.
+targetQuery.
 
     >>> res = [repr([intids.getObject(t) for t in path]) for path in
     ...  ix.findRelationshipTokenChains(
@@ -1386,8 +1386,8 @@ for some applications.
     >>> list(ix.findValueTokens('objects', {'subjects': 1}))
     [2]
 
-Remember that BTrees (not just BTreeSets) can be used for these values: the keys
-are used as the values in that case.
+Remember that BTrees (not just BTreeSets) can be used for these values:
+the keys are used as the set members in that case.
 
 __contains__ and Unindexing
 =============================
