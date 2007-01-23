@@ -1,0 +1,22 @@
+=======
+CHANGES
+=======
+
+1.0.1
+=====
+
+- Incorporated test and bug fix from Gabriel Shaar::
+
+  if the target parameter is a container with no objects, then
+  `shared.AbstractContainer.isLinked` resolves to False in a bool context and
+  tokenization fails.  `target and tokenize({'target': target})` returns the
+  target instead of the result of the tokenize function.
+
+- Made README.txt tests pass on hopefully wider set of machines (this was a
+  test improvement; the relationship index did not have the fragility).
+  Reported by Gabriel Shaar.
+
+1.0
+===
+
+Initial release

@@ -792,6 +792,13 @@ and other use cases.
 Even the relationship containers themselves can be nodes in a relationship
 container.
 
+	>>> container1 = app['container1'] = Container()
+	>>> container2 = app['container2'] = Container()
+	>>> rel = Relationship((container1,), (container2,))
+	>>> container.add(rel)
+	>>> container.isLinked(container1, container2)
+	True
+
 Exposing Unresolved Tokens
 --------------------------
 

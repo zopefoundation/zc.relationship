@@ -201,7 +201,7 @@ Here are the methods we'll use for the 'subjects' and 'objects' tokens,
 followed by the methods we'll use for the 'relationshiptypes' tokens.
 
     >>> lookup = {}
-    >>> counter = [-2147483647]
+    >>> counter = [0]
     >>> prefix = '_z_token__'
     >>> def dump(obj, index, cache):
     ...     assert (interfaces.IIndex.providedBy(index) and

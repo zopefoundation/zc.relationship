@@ -256,7 +256,7 @@ class AbstractContainer(persistent.Persistent):
             return self.relationIndex.isLinked(
                 tokenize({'source': source}),
                 maxDepth, filter and ResolvingFilter(filter, self),
-                target and tokenize({'target': target}),
+                target is not None and tokenize({'target': target}) or None,
                 targetFilter=minDepthFilter(minDepth))
         elif target is not None:
             return self.relationIndex.isLinked(
