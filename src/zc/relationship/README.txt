@@ -504,7 +504,7 @@ relationship tokens that match it, intransitively.
 
     >>> res = ix.findRelationshipTokenSet(q({'subjects': people['Fred']}))
     >>> res # doctest: +ELLIPSIS
-    <BTrees._IFBTree.IFTreeSet object at ...>
+    <BTrees.IFBTree.IFTreeSet object at ...>
     >>> [intids.getObject(t) for t in res]
     [<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]
 
@@ -519,7 +519,7 @@ relationship.
 
     >>> res = ix.findValueTokenSet(list(res)[0], 'subjects')
     >>> res # doctest: +ELLIPSIS
-    <BTrees._IFBTree.IFTreeSet object at ...>
+    <BTrees.IFBTree.IFTreeSet object at ...>
     >>> [load(t, ix, {}) for t in res]
     [<Person 'Fred'>]
 
@@ -553,7 +553,7 @@ Here, we ask for the relationships that have the 'has the role of' type.
     ...     q({'reltype': 'has the role of'})})
     ... doctest: +ELLIPSIS
     >>> res # doctest: +ELLIPSIS
-    <BTrees._IFBTree.IFTreeSet object at ...>
+    <BTrees.IFBTree.IFTreeSet object at ...>
     >>> [intids.getObject(t) for t in res]
     [<(<Person 'Fred'>,) has the role of (<Role 'Project Manager'>,)>]
 
