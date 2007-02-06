@@ -80,17 +80,10 @@ def resolveToken(token, index, cache):
 # the relationship index
 
 def getModuleTools(module):
-    res = {'multiunion': None}
-    for nm in dir(module):
-        if not nm.startswith('_') and not nm.endswith('Iterator'):
-            value = getattr(module, nm)
-            if isinstance(value, types.ModuleType):
-                continue
-            if re.match('[A-Z][A-Z]', nm):
-                res[nm[2:]] = value
-            else:
-                res[nm] = value
-    return res
+    return dict(
+        (nm, getattr(module, nm, None)) for nm in 
+        ('BTree', 'TreeSet', 'Bucket', 'Set',
+         'intersection', 'multiunion', 'union', 'difference'))
 
 class Index(persistent.Persistent, zope.app.container.contained.Contained):
     interface.implements(interfaces.IIndex)
@@ -103,10 +96,10 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
     def __init__(self, attrs, defaultTransitiveQueriesFactory=None,
                  dumpRel=generateToken, loadRel=resolveToken,
                  relFamily=IFBTree, deactivateSets=False):
-        self._name_TO_mapping = OOBTree.OOBTree()
+        self._name_TO_mapping = OOBTree.BTree()
         # held mappings are objtoken to (relcount, relset)
-        self._EMPTY_name_TO_relcount_relset = OOBTree.OOBTree()
-        self._reltoken_name_TO_objtokenset = OOBTree.OOBTree()
+        self._EMPTY_name_TO_relcount_relset = OOBTree.BTree()
+        self._reltoken_name_TO_objtokenset = OOBTree.BTree()
         self.defaultTransitiveQueriesFactory = defaultTransitiveQueriesFactory
         self._relTools = getModuleTools(relFamily)
         self._relTools['load'] = loadRel
@@ -142,10 +135,10 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             res['multiple'] = data.get('multiple', False)
             res['call'] = zope.interface.interfaces.IMethod.providedBy(val)
             if res['TreeSet'].__name__.startswith('I'):
-                Mapping = IOBTree.IOBTree
+                Mapping = IOBTree.BTree
             else:
                 assert res['TreeSet'].__name__.startswith('O')
-                Mapping = OOBTree.OOBTree
+                Mapping = OOBTree.BTree
             self._name_TO_mapping[res['name']] = Mapping()
             # these are objtoken to (relcount, relset)
 
@@ -304,7 +297,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             raise ValueError('one key in the primary query dictionary')
         (searchType, query) = query.items()[0]
         if searchType=='relationships':
-            if self._relTools['TreeSet'] is not IFBTree.IFTreeSet:
+            if self._relTools['TreeSet'] is not IFBTree.TreeSet:
                 raise ValueError(
                     'cannot fulfill `apply` interface because cannot return '
                     'an IFBTree-based result')
@@ -314,7 +307,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             return res
         elif searchType=='values':
             data = self._attrs[query['resultName']]
-            if data['TreeSet'] is not IFBTree.IFTreeSet:
+            if data['TreeSet'] is not IFBTree.TreeSet:
                 raise ValueError(
                     'cannot fulfill `apply` interface because cannot return '
                     'an IFBTree-based result')
