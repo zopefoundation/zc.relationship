@@ -1,5 +1,4 @@
 import re
-import types
 
 import persistent
 import persistent.interfaces
@@ -83,13 +82,10 @@ def getModuleTools(module):
     res = {'multiunion': None}
     for nm in dir(module):
         if not nm.startswith('_') and not nm.endswith('Iterator'):
-            value = getattr(module, nm)
-            if isinstance(value, types.ModuleType):
-                continue
             if re.match('[A-Z][A-Z]', nm):
-                res[nm[2:]] = value
+                res[nm[2:]] = getattr(module, nm)
             else:
-                res[nm] = value
+                res[nm] = getattr(module, nm)
     return res
 
 class Index(persistent.Persistent, zope.app.container.contained.Contained):
