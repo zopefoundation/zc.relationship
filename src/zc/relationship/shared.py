@@ -190,7 +190,7 @@ def minDepthFilter(depth):
         return None
     if not isinstance(depth, (int, long)) or depth < 1:
         raise ValueError('invalid minDepth', depth)
-    return lambda relchain, query, index, cache: len(relchain) >= minDepth
+    return lambda relchain, query, index, cache: len(relchain) >= depth
 
 class AbstractContainer(persistent.Persistent):
     def __init__(self,
