@@ -280,8 +280,9 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             for data in self._attrs.values():
                 assert self._reltoken_name_TO_objtokenset.get(
                     (relToken, data['name']), self) is self
-                values, tokens, gen = self._getValuesAndTokens(rel, data)
-                if gen:
+                values, tokens, optimization = self._getValuesAndTokens(
+                    rel, data)
+                if optimization and tokens is not None:
                     tokens = data['TreeSet'](tokens)
                 self._add(relToken, tokens, data['name'], tokens)
             self._relTokens.insert(relToken)

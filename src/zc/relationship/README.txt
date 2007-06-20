@@ -1746,14 +1746,21 @@ for some applications.
     >>> sm['rel_index_3'] = ix
     >>> from BTrees import IFBTree
     >>> app['ex_rel_2'] = rel = Relationship(
-    ...     IFBTree.IFTreeSet((1,)), 'has the role of', IFBTree.IFTreeSet((2,)))
+    ...     IFBTree.IFTreeSet((1,)), 'has the role of', IFBTree.IFTreeSet())
     >>> ix.index(rel)
     >>> list(ix.findValueTokens('objects', {'subjects': 1}))
-    [2]
+    []
+    >>> list(ix.findValueTokens('subjects', {'objects': None}))
+    [1]
 
 Reindexing is where some of the big improvements can happen.  The following
 gyrations exercise the optimization code.
 
+    >>> rel.objects.insert(2)
+    1
+    >>> ix.index(rel)
+    >>> list(ix.findValueTokens('objects', {'subjects': 1}))
+    [2]
     >>> rel.subjects = IFBTree.IFTreeSet((3,4,5))
     >>> ix.index(rel)
     >>> list(ix.findValueTokens('objects', {'subjects': 3}))
