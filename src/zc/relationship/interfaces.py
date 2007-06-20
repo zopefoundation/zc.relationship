@@ -60,15 +60,18 @@ class IIndex(zope.index.interfaces.IInjection,
     def __contains__(relationship):
         """returns whether the relationship is in the index"""
 
-    def findValueTokens(resultName, query, maxDepth=None, filter=None,
+    def findValueTokens(resultName, query=None, maxDepth=None, filter=None,
                         targetQuery=None, targetFilter=None,
                         transitiveQueriesFactory=None):
         """find token results for searchTerms.
         - resultName is the index name wanted for results.
+        - if query is None (or evaluates to boolean False), returns the
+          underlying btree data structure; which is an iterable result but
+          can also be used with BTree operations
         Otherwise, same arguments as findRelationshipChains.
         """
 
-    def findValues(resultName, query, maxDepth=None, filter=None,
+    def findValues(resultName, query=None, maxDepth=None, filter=None,
                    targetQuery=None, targetFilter=None,
                    transitiveQueriesFactory=None):
         """Like findValueTokens, but resolves value tokens"""

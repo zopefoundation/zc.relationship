@@ -3,7 +3,8 @@ import types
 
 import persistent
 import persistent.interfaces
-from BTrees import OOBTree, IFBTree, IOBTree, Length
+import BTrees
+from BTrees import Length
 
 from zope import interface, component
 import zope.interface.interfaces
@@ -56,7 +57,12 @@ class TransposingTransitiveQueriesFactory(persistent.Persistent):
         else:
             static = cache['static']
         if dynamic:
-            for r in index.findValueTokenSet(relchain[-1], dynamic[1]):
+            name = dynamic[1]
+            if name is None:
+                rels = (relchain[-1],)
+            else:
+                rels = index.findValueTokenSet(relchain[-1], name)
+            for r in rels:
                 res = {dynamic[0]: r}
                 res.update(static)
                 yield res
@@ -88,42 +94,39 @@ def getModuleTools(module):
 class Index(persistent.Persistent, zope.app.container.contained.Contained):
     interface.implements(interfaces.IIndex)
 
-    def _deactivate(self, ob):
-        if (getattr(ob, '_p_jar', None) is not None and
-            persistent.interfaces.IPersistent.providedBy(ob)):
-            ob._p_deactivate()
+    family = BTrees.family32
 
     def __init__(self, attrs, defaultTransitiveQueriesFactory=None,
                  dumpRel=generateToken, loadRel=resolveToken,
-                 relFamily=IFBTree, deactivateSets=False):
-        self._name_TO_mapping = OOBTree.BTree()
+                 relFamily=None, family=None):
+        if family is not None:
+            self.family = family
+        else:
+            family = self.family
+        self._name_TO_mapping = family.OO.BTree()
         # held mappings are objtoken to (relcount, relset)
-        self._EMPTY_name_TO_relcount_relset = OOBTree.BTree()
-        self._reltoken_name_TO_objtokenset = OOBTree.BTree()
+        self._EMPTY_name_TO_relcount_relset = family.OO.BTree()
+        self._reltoken_name_TO_objtokenset = family.OO.BTree()
         self.defaultTransitiveQueriesFactory = defaultTransitiveQueriesFactory
+        if relFamily is None:
+            relFamily = family.IF
         self._relTools = getModuleTools(relFamily)
         self._relTools['load'] = loadRel
         self._relTools['dump'] = dumpRel
         self._relLength = Length.Length()
         self._relTokens = self._relTools['TreeSet']()
-        self.deactivateSets = deactivateSets
         self._attrs = _attrs = {} # this is private, and it's not expected to
         # mutate after this initial setting.
         seen = set()
         for data in attrs:
             # see README.txt for description of attrs.
+
             if zope.interface.interfaces.IElement.providedBy(data):
                 data = {'element': data}
-            res = getModuleTools(data.get('btree', IFBTree))
-            res['element'] = val = data['element']
-            res['attrname'] = val.__name__
-            res['name'] = data.get('name', res['attrname'])
-            if res['name'] in _attrs or val in seen:
-                raise ValueError('Duplicate in attrs', name, val)
-            seen.add(val)
-            _attrs[res['name']] = res
+            res = getModuleTools(data.get('btree', family.IF))
             res['dump'] = data.get('dump', generateToken)
             res['load'] = data.get('load', resolveToken)
+            res['multiple'] = data.get('multiple', False)
             if (res['dump'] is None) ^ (res['load'] is None):
                 raise ValueError(
                     "either both of 'dump' and 'load' must be None, or neither")
@@ -131,36 +134,60 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                 # optimization that can be a large optimization if the returned
                 # value is one of the main four options of the selected btree
                 # family (BTree, TreeSet, Set, Bucket).
-            res['interface'] = val.interface
-            res['multiple'] = data.get('multiple', False)
-            res['call'] = zope.interface.interfaces.IMethod.providedBy(val)
-            if res['TreeSet'].__name__.startswith('I'):
-                Mapping = IOBTree.BTree
+
+            if 'element' in data:
+                if 'callable' in data:
+                    raise ValueError(
+                        'cannot provide both callable and element')
+                res['element'] = val = data['element']
+                name = res['attrname'] = val.__name__
+                res['interface'] = val.interface
+                res['call'] = zope.interface.interfaces.IMethod.providedBy(val)
+            elif 'callable' not in data:
+                raise ValueError('must provide element or callable')
+            else:
+                # must return iterable or None
+                val = res['callable'] = data['callable']
+                name = getattr(res['callable'], '__name__', None)
+            res['name'] = data.get('name', name)
+            if res['name'] is None:
+                raise ValueError('no name specified')
+            if res['name'] in _attrs or val in seen:
+                raise ValueError('Duplicate in attrs', res['name'], val)
+            if res['TreeSet'].__name__[0] == 'I':
+                Mapping = BTrees.family32.IO.BTree
+            elif res['TreeSet'].__name__[0] == 'L':
+                Mapping = BTrees.family64.IO.BTree
             else:
                 assert res['TreeSet'].__name__.startswith('O')
-                Mapping = OOBTree.BTree
+                Mapping = family.OO.BTree
             self._name_TO_mapping[res['name']] = Mapping()
             # these are objtoken to (relcount, relset)
+            seen.add(val)
+            _attrs[res['name']] = res
 
     def _getValuesAndTokens(self, rel, data):
-        valueSource = data['interface'](rel, None)
-        if valueSource is not None:
-            values = getattr(valueSource, data['attrname'])
-            if data['call']:
-                values = values()
-            if not data['multiple'] and values is not None:
-                # None is a marker for no value
-                values = (values,)
-            elif not values:
-                values = None
+        values = None
+        if 'interface' in data:
+            valueSource = data['interface'](rel, None)
+            if valueSource is not None:
+                values = getattr(valueSource, data['attrname'])
+                if data['call']:
+                    values = values()
         else:
-            values = None
-        if values is None:
-            return values, values, False
-        elif data['dump'] is None and isinstance(values, (
-            data['TreeSet'], data['BTree'], data['Bucket'], data['Set'])):
+            values = data['callable'](rel, self)
+        if not data['multiple'] and values is not None:
+            # None is a marker for no value
+            values = (values,)
+        optimization = data['dump'] is None and (
+            values is None or 
+            isinstance(values, (
+                data['TreeSet'], data['BTree'], data['Bucket'], data['Set'])))
+        if not values:
+            return None, None, optimization
+        elif optimization:
             # this is the optimization story (see _add)
-            return values, values, True
+            return values, values, optimization
         else:
             cache = {}
             if data['dump'] is None:
@@ -244,7 +271,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                     else:
                         removed = oldTokens
                         added = newTokens
-                        if optimization:
+                        if optimization and newTokens is not None:
                             newTokens = data['TreeSet'](newTokens)
                     self._remove(relToken, removed, data['name'])
                     self._add(relToken, added, data['name'], newTokens)
@@ -297,20 +324,20 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             raise ValueError('one key in the primary query dictionary')
         (searchType, query) = query.items()[0]
         if searchType=='relationships':
-            if self._relTools['TreeSet'] is not IFBTree.TreeSet:
+            if self._relTools['TreeSet'].__name__[:2] not in ('IF', 'LF'):
                 raise ValueError(
                     'cannot fulfill `apply` interface because cannot return '
-                    'an IFBTree-based result')
+                    'an (I|L)FBTree-based result')
             res = self._relData(query)
             if res is None:
                 res = self._relTools['TreeSet']()
             return res
         elif searchType=='values':
             data = self._attrs[query['resultName']]
-            if data['TreeSet'] is not IFBTree.TreeSet:
+            if data['TreeSet'].__name__[:2] not in ('IF', 'LF'):
                 raise ValueError(
                     'cannot fulfill `apply` interface because cannot return '
-                    'an IFBTree-based result')
+                    'an (I|L)FBTree-based result')
             iterable = self._yieldValueTokens(
                 query['resultName'], *(self._parse(
                     query['query'], query.get('maxDepth'),
@@ -318,31 +345,36 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                     query.get('targetFilter'),
                     query.get('transitiveQueriesFactory')) +
                 (True,)))
-            if data['multiunion'] is not None:
-                res = data['multiunion'](tuple(iterable))
-            else:
-                res = data['TreeSet']()
-                for s in iterable:
-                    res = data['union'](res, s)
-            return res
+            # IF and LF have multiunion; can demand its presence
+            return data['multiunion'](tuple(iterable))
         else:
             raise ValueError('unknown query type', searchType)
 
     def tokenizeQuery(self, query):
         res = {}
-        for k, v in query.items():
-            data = self._attrs[k]
-            if v is not None and data['dump'] is not None:
-                v = data['dump'](v, self, {})
+        if getattr(query, 'items', None) is not None:
+            query = query.items()
+        for k, v in query:
+            if k is None:
+                v = self._relTools['dump'](v, self, {})
+            else:
+                data = self._attrs[k]
+                if v is not None and data['dump'] is not None:
+                    v = data['dump'](v, self, {})
             res[k] = v
         return res
 
     def resolveQuery(self, query):
         res = {}
-        for k, v in query.items():
-            data = self._attrs[k]
-            if v is not None and data['load'] is not None:
-                v = data['load'](v, self, {})
+        if getattr(query, 'items', None) is not None:
+            query = query.items()
+        for k, v in query:
+            if k is None:
+                v = self._relTools['load'](v, self, {})
+            else:
+                data = self._attrs[k]
+                if v is not None and data['load'] is not None:
+                    v = data['load'](v, self, {})
             res[k] = v
         return res
 
@@ -356,7 +388,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
     def resolveValueTokens(self, tokens, name):
         load = self._attrs[name]['load']
         if load is None:
-            return values
+            return tokens
         cache = {}
         return (load(t, self, cache) for t in tokens)
 
@@ -374,17 +406,17 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         cache = {}
         return (self._relTools['load'](t, self, cache) for t in tokens)
 
-    def findRelationships(self, query):
-        return self.resolveRelationshipTokens(
-            self.findRelationshipTokenSet(query))
-
     def findRelationshipTokenSet(self, query):
+        # equivalent to, and used by, non-transitive
+        # findRelationshipTokens(query)
         res = self._relData(query)
         if res is None:
             res = self._relTools['TreeSet']()
         return res
 
     def findValueTokenSet(self, reltoken, name):
+        # equivalent to, and used by, non-transitive
+        # findValueTokens(name, {None: reltoken})
         res = self._reltoken_name_TO_objtokenset.get((reltoken, name))
         if res is None:
             res = self._attrs[name]['TreeSet']()
@@ -394,14 +426,28 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         data = []
         if getattr(searchTerms, 'items', None) is not None:
             searchTerms = searchTerms.items()
+        searchTerms = tuple(searchTerms)
+        if not searchTerms:
+            return self._relTokens
+        rel = None
         for nm, token in searchTerms:
-            if token is None:
-                relData = self._EMPTY_name_TO_relcount_relset.get(nm)
+            if nm is None:
+                rel = token
+                if rel not in self._relTokens:
+                    return None
             else:
-                relData = self._name_TO_mapping[nm].get(token)
-            if relData is None or relData[0].value == 0:
-                return None
-            data.append((relData[0].value, nm, token, relData[1]))
+                if token is None:
+                    relData = self._EMPTY_name_TO_relcount_relset.get(nm)
+                else:
+                    relData = self._name_TO_mapping[nm].get(token)
+                if relData is None or relData[0].value == 0:
+                    return None
+                data.append((relData[0].value, nm, token, relData[1]))
+        if rel is not None:
+            for ct, nm, tk, st in data:
+                if rel not in st:
+                    return None
+            return self._relTools['TreeSet']((rel,))
         data.sort()
         while len(data) > 1:
             first_count, _ignore1, _ignore2, first_set = data[0]
@@ -423,9 +469,6 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             else:
                 intersection = self._relTools['intersection'](
                     first_set, second_set)
-            if self.deactivateSets:
-                self._deactivate(first_set)
-                self._deactivate(second_set)
             if not intersection:
                 return None
             data = data[2:]
@@ -479,38 +522,54 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         return (query, relData, maxDepth, checkFilter, checkTargetFilter,
                 getQueries)
 
-    def findValueTokens(self, resultName, query, maxDepth=None, filter=None,
-                        targetQuery=None, targetFilter=None,
+    def findValueTokens(self, resultName, query=(), maxDepth=None,
+                        filter=None, targetQuery=None, targetFilter=None,
                         transitiveQueriesFactory=None):
-        if resultName not in self._attrs:
-            raise ValueError('name not indexed', nm)
+        data = self._attrs.get(resultName)
+        if data is None:
+            raise ValueError('name not indexed', resultName)
+        if (((maxDepth is None and transitiveQueriesFactory is None and
+              self.defaultTransitiveQueriesFactory is None)
+             or maxDepth==1)
+            and filter is None and not targetQuery and targetFilter is None):
+            if not query:
+                return self._name_TO_mapping[resultName]
+            rels = self._relData(query)
+            if not rels:
+                return data['TreeSet']()
+            elif len(rels) == 1:
+                return self.findValueTokenSet(iter(rels).next(), resultName)
+            else:
+                iterable = (
+                    self._reltoken_name_TO_objtokenset.get((r, resultName))
+                    for r in rels)
+                if data['multiunion'] is not None:
+                    res = data['multiunion'](tuple(iterable))
+                else:
+                    res = data['TreeSet']()
+                    for s in iterable:
+                        res = data['union'](res, s)
+                return res
         return self._yieldValueTokens(
             resultName, *self._parse(
                 query, maxDepth, filter, targetQuery, targetFilter,
                 transitiveQueriesFactory))
 
-    def findValues(self, resultName, query, maxDepth=None, filter=None,
+    def findValues(self, resultName, query=(), maxDepth=None, filter=None,
                    targetQuery=None, targetFilter=None,
                    transitiveQueriesFactory=None):
-        resolve = self._attrs[resultName]['load']
+        data = self._attrs.get(resultName)
+        if data is None:
+            raise ValueError('name not indexed', resultName)
+        resolve = data['load']
+        res = self.findValueTokens(resultName, query, maxDepth, filter,
+                                   targetQuery, targetFilter,
+                                   transitiveQueriesFactory)
         if resolve is None:
-            return self._yieldValueTokens(
-                resultName, *self._parse(
-                    query, maxDepth, filter, targetQuery, targetFilter,
-                    transitiveQueriesFactory))
-        return self._yieldValues(
-            resultName, *self._parse(
-                query, maxDepth, filter, targetQuery, targetFilter,
-                transitiveQueriesFactory))
-
-    def _yieldValues(self, resultName, query, relData, maxDepth, checkFilter,
-                     checkTargetFilter, getQueries):
-        resolve = self._attrs[resultName]['load']
-        cache = {}
-        for t in self._yieldValueTokens(resultName, query, relData, maxDepth,
-                                        checkFilter, checkTargetFilter,
-                                        getQueries):
-            yield resolve(t, self, cache)
+            return res
+        else:
+            cache = {}
+            return (resolve(t, self, cache) for t in res)
 
     def _yieldValueTokens(
         self, resultName, query, relData, maxDepth, checkFilter,
@@ -533,8 +592,29 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                             if token not in objSeen:
                                 yield token
                                 objSeen.add(token)
-                            if self.deactivateSets:
-                                self._deactivate(outputSet)
+
+    def findRelationshipTokens(self, query=(), maxDepth=None, filter=None,
+                               targetQuery=None, targetFilter=None,
+                               transitiveQueriesFactory=None):
+        if (((maxDepth is None and transitiveQueriesFactory is None and
+              self.defaultTransitiveQueriesFactory is None)
+             or maxDepth==1)
+            and filter is None and not targetQuery and targetFilter is None):
+            return self.findRelationshipTokenSet(query)
+        seen = self._relTools['TreeSet']()
+        return (res[-1] for res in self._yieldRelationshipTokenChains(
+                    *self._parse(query, maxDepth, filter, targetQuery,
+                                 targetFilter, transitiveQueriesFactory) +
+                    (False,))
+                if seen.insert(res[-1]))
+
+    def findRelationships(self, query=(), maxDepth=None, filter=None,
+                          targetQuery=None, targetFilter=None,
+                          transitiveQueriesFactory=None):
+        return self.resolveRelationshipTokens(
+            self.findRelationshipTokens(
+                query, maxDepth, filter, targetQuery, targetFilter,
+                transitiveQueriesFactory))
 
     def findRelationshipChains(self, query, maxDepth=None, filter=None,
                                targetQuery=None, targetFilter=None,
@@ -543,8 +623,6 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
         
         same arguments as findValueTokens except no resultName.
         """
-        if self._relTools['load'] is None:
-            raise RuntimeError('not configured to resolve relationship tokens')
         return self._yieldRelationshipChains(*self._parse(
             query, maxDepth, filter, targetQuery, targetFilter,
             transitiveQueriesFactory))
@@ -606,8 +684,6 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                                 cycled.append(q)
                             elif walkFurther:
                                 next.update(relData)
-                            if self.deactivateSets:
-                                self._deactivate(relData)
                     if walkFurther and next:
                         stack.append((tokenChain, iter(next)))
                     if cycled:

@@ -101,7 +101,8 @@ def test_suite():
     res = unittest.TestSuite((
         doctest.DocFileSuite(
             'README.txt',
-            setUp=READMESetUp, tearDown=READMETearDown),
+            setUp=READMESetUp, tearDown=READMETearDown,
+            optionflags=doctest.INTERPRET_FOOTNOTES),
         doctest.DocFileSuite(
             'container.txt', setUp=keyrefSetUp, tearDown=tearDown),
         doctest.DocFileSuite(
