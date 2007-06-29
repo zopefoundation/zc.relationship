@@ -30,6 +30,9 @@ container.txt for documentation of the relationship container.
 Index
 =====
 
+.. contents::
+   :local:
+
 Overview
 ========
 
@@ -1864,19 +1867,21 @@ true for unindex.
     >>> ix.unindex(app['abeAndBran'])
     >>> ix.unindex_doc(ix.tokenizeRelationship(app['abeAndBran']))
 
+.. ......... ..
+.. FOOTNOTES ..
+.. ......... ..
 
-
-..[#apply] `apply` and the other zope.index-related methods are the obvious
+.. [#apply] `apply` and the other zope.index-related methods are the obvious
     exceptions.
 
-..[#resolveQuery] You can also resolve queries.
+.. [#resolveQuery] You can also resolve queries.
 
     >>> ix.resolveQuery({None: 'Alice'})
     {None: <Alice>}
     >>> ix.resolveQuery({'supervisor': 'Alice'})
     {'supervisor': <Alice>}
 
-..[#None_details] You can search for relations that haven't been indexed.
+.. [#None_details] You can search for relations that haven't been indexed.
 
     >>> list(ix.findRelationshipTokens({None: 'Ygritte'}))
     []
@@ -1890,7 +1895,7 @@ true for unindex.
     >>> list(ix.findRelationshipTokens({None: 'Betty', 'supervisor': 'Alice'}))
     ['Betty']
 
-..[#needs_a_transitive_queries_factory] A search with a maxDepth > 1 but
+.. [#needs_a_transitive_queries_factory] A search with a maxDepth > 1 but
     no transitiveQueriesFactory raises an error.
     
     >>> ix.defaultTransitiveQueriesFactory = None
@@ -1901,7 +1906,7 @@ true for unindex.
 
     >>> ix.defaultTransitiveQueriesFactory = factory
 
-..[#there_can_be_only_one] instantiating an index with a dictionary containing
+.. [#there_can_be_only_one] instantiating an index with a dictionary containing
     both the 'element' and the 'callable' key is an error:
 
     >>> def subjects(obj, index, cache):
@@ -1930,7 +1935,7 @@ true for unindex.
     ...
     ValueError: must provide element or callable
 
-..[#name_errors] It's possible to pass a callable without a name, in which
+.. [#name_errors] It's possible to pass a callable without a name, in which
     case you must explicitly specify a name.
 
     >>> class AttrGetter(object):
@@ -1993,7 +1998,7 @@ true for unindex.
     ...
     ValueError: ('Duplicate in attrs', 'objects', <...Attribute ...>)
 
-..[#neither_or_both] It is not allowed to provide only one or the other of
+.. [#neither_or_both] It is not allowed to provide only one or the other of
     'load' and 'dump'.
 
     >>> ix = index.Index(
@@ -2020,7 +2025,7 @@ true for unindex.
     ...
     ValueError: either both of 'dump' and 'load' must be None, or neither
 
-..[#TransposingTransitiveQueriesFactory] The factory lets you specify two
+.. [#TransposingTransitiveQueriesFactory] The factory lets you specify two
     names, which are transposed for transitive walks.  This is usually what
     you want for a hierarchy and similar variations: as the text describes
     later, more complicated traversal might be desired in more complicated
@@ -2057,7 +2062,7 @@ true for unindex.
     ...      ix, {})) == [{'subjects': 'bar', 'getContext': 'shazam'}]
     True
 
-..[#family64] Here's an example of specifying the family64.  This is a "white
+.. [#family64] Here's an example of specifying the family64.  This is a "white
     box" demonstration that looks at some of the internals.
     
     >>> ix = index.Index( # 32 bit default
@@ -2107,7 +2112,7 @@ true for unindex.
     >>> ix._attrs['getContext']['BTree'] is BTrees.family64.IF.BTree
     True
 
-..[#findValue_errors] `findValueTokens` and `findValues` raise errors if
+.. [#findValue_errors] `findValueTokens` and `findValues` raise errors if
     you try to get a value that is not indexed.
 
     >>> list(ix.findValues(
@@ -2128,7 +2133,7 @@ true for unindex.
     ...
     ValueError: ('name not indexed', 'folks')
 
-..[#apply_errors] Only one key may be in the dictionary.
+.. [#apply_errors] Only one key may be in the dictionary.
 
     >>> res = ix.apply({'values':
     ...     {'resultName': 'objects', 'query':
