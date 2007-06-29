@@ -129,7 +129,8 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             res['multiple'] = data.get('multiple', False)
             if (res['dump'] is None) ^ (res['load'] is None):
                 raise ValueError(
-                    "either both of 'dump' and 'load' must be None, or neither")
+                    "either both of 'dump' and 'load' must be None, or "
+                    "neither")
                 # when both load and dump are None, this is a small
                 # optimization that can be a large optimization if the returned
                 # value is one of the main four options of the selected btree
@@ -154,6 +155,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                 raise ValueError('no name specified')
             if res['name'] in _attrs or val in seen:
                 raise ValueError('Duplicate in attrs', res['name'], val)
+            seen.add(val)
             if res['TreeSet'].__name__[0] == 'I':
                 Mapping = BTrees.family32.IO.BTree
             elif res['TreeSet'].__name__[0] == 'L':
@@ -163,8 +165,8 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                 Mapping = family.OO.BTree
             self._name_TO_mapping[res['name']] = Mapping()
             # these are objtoken to (relcount, relset)
-            seen.add(val)
             _attrs[res['name']] = res
+        
 
     def _getValuesAndTokens(self, rel, data):
         values = None
@@ -255,19 +257,25 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                             # over essentially generating a new TreeSet and
                             # updating it with *all* values.  On the other
                             # hand, if there are a lot of removals, it's
-                            # probably quicker just to make a new one."  We
-                            # pick >25 removals, mostly arbitrarily, as our 
-                            # "cut bait" cue.  We don't just do a len of
-                            # removed because lens of btrees are potentially
-                            # expensive.
-                            for ix, t in enumerate(removed):
-                                if ix >= 25: # arbitrary cut-off
-                                    newTokens = data['TreeSet'](newTokens)
-                                    break
-                                oldTokens.remove(t)
+                            # probably quicker just to make a new one."  See
+                            # timeit/set_creation_vs_removal.py for details.
+                            # A len is pretty cheap--all the buckets should
+                            # already be in memory.
+                            len_removed = len(removed)
+                            if len_removed < 5:
+                                recycle = True
                             else:
+                                len_old = len(oldTokens)
+                                ratio = float(len_old)/len_removed
+                                recycle = (ratio <= 0.1 or len_old > 500
+                                           and ratio < 0.2)
+                            if recycle:
+                                for t in removed:
+                                    oldTokens.remove(t)
                                 oldTokens.update(added)
                                 newTokens = oldTokens
+                            else:
+                                newTokens = data['TreeSet'](newTokens)
                     else:
                         removed = oldTokens
                         added = newTokens
@@ -425,7 +433,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
 
     def _relData(self, searchTerms):
         data = []
-        if getattr(searchTerms, 'items', None) is not None:
+        if getattr(searchTerms, 'items', None) is not None: # quack
             searchTerms = searchTerms.items()
         searchTerms = tuple(searchTerms)
         if not searchTerms:
@@ -443,40 +451,25 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                     relData = self._name_TO_mapping[nm].get(token)
                 if relData is None or relData[0].value == 0:
                     return None
-                data.append((relData[0].value, nm, token, relData[1]))
+                data.append((relData[0].value, relData[1])) # length, set
+        # we don't want to sort on the set values!! just the lengths.
+        data.sort(key=lambda i: i[0])
         if rel is not None:
-            for ct, nm, tk, st in data:
-                if rel not in st:
+            for l, s in data:
+                if rel not in s:
                     return None
             return self._relTools['TreeSet']((rel,))
-        data.sort()
-        while len(data) > 1:
-            first_count, _ignore1, _ignore2, first_set = data[0]
-            second_count, second_name, second_token, second_set = data[1]
-            if first_count <= second_count/10:
-                # we'll just test this by hand: intended to be an optimization.
-                # should be tested and the factor adjusted (or this
-                # code path removed, relying only on the standard BTree
-                # intersection code).  The theory behind this is that the
-                # standard BTree intersection code just iterates over the sets
-                # to find matches.  Therefore, if you have one set of 
-                # range(100000) and another of (99999,) then it will be fairly
-                # inefficient.  walking a BTree to find membership is very
-                # cheap, so if the first_count is significantly smaller than
-                # the second_count we should just check whether each
-                # member of the smaller set is in the larger, one at a time.
-                intersection = self._relTools['TreeSet'](
-                    i for i in first_set if i in second_set)
-            else:
-                intersection = self._relTools['intersection'](
-                    first_set, second_set)
-            if not intersection:
-                return None
-            data = data[2:]
-            # we can't know how many are in a new set without a possibly
-            # expensive len; however, the len should be <= first_count
-            data.insert(0, (first_count, None, None, intersection))
-        return data[0][3]
+        # we had an untested optimization attempt here before.  It has
+        # been tested now (see timeit/manual_intersection.py), found
+        # useless, and removed.
+        #
+        # we know we have at least one result now.  intersect all.  Work
+        # from smallest to largest, until we're done or we don't have any
+        # more results.
+        res = data.pop(0)[1]
+        while res and data:
+            res = self._relTools['intersection'](res, data.pop(0)[1])
+        return res
 
     def _parse(self, query, maxDepth, filter, targetQuery, targetFilter,
                transitiveQueriesFactory):
