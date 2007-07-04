@@ -792,12 +792,12 @@ and other use cases.
 Even the relationship containers themselves can be nodes in a relationship
 container.
 
-	>>> container1 = app['container1'] = Container()
-	>>> container2 = app['container2'] = Container()
-	>>> rel = Relationship((container1,), (container2,))
-	>>> container.add(rel)
-	>>> container.isLinked(container1, container2)
-	True
+    >>> container1 = app['container1'] = Container()
+    >>> container2 = app['container2'] = Container()
+    >>> rel = Relationship((container1,), (container2,))
+    >>> container.add(rel)
+    >>> container.isLinked(container1, container2)
+    True
 
 Exposing Unresolved Tokens
 --------------------------
@@ -810,3 +810,256 @@ relationship container return the actual intids.
 The containers include three methods for these sorts of use cases:
 `findTargetTokens`, `findSourceTokens`, and `findRelationshipTokens`.  They
 take the same arguments as their similarly-named cousins.
+
+Convenience classes
+-------------------
+
+Three convenience classes exist for relationships with a single source and/or a
+single target only.
+
+One-To-One Relationship
+~~~~~~~~~~~~~~~~~~~~~~~
+
+A `OneToOneRelationship` relates a single source to a single target.
+
+    >>> from zc.relationship.shared import OneToOneRelationship
+    >>> rel = OneToOneRelationship(app['ob20'], app['ob21'])
+
+    >>> verifyObject(interfaces.IOneToOneRelationship, rel)
+    True
+
+All container methods work as for the general many-to-many relationship.  We
+repeat some of the tests defined in the main section above (all relationships
+defined there are actually one-to-one relationships).
+
+    >>> container.add(rel)
+    >>> container.add(OneToOneRelationship(app['ob21'], app['ob22']))
+    >>> container.add(OneToOneRelationship(app['ob21'], app['ob23']))
+    >>> container.add(OneToOneRelationship(app['ob20'], app['ob23']))
+    >>> container.add(OneToOneRelationship(app['ob20'], app['ob24']))
+    >>> container.add(OneToOneRelationship(app['ob22'], app['ob25']))
+    >>> rel = OneToOneRelationship(app['ob25'], app['ob21'])
+    >>> container.add(rel)
+
+`findTargets`
+
+    >>> sorted(o.id for o in container.findTargets(app['ob20'], 2))
+    ['ob21', 'ob22', 'ob23', 'ob24']
+
+`findSources`
+
+    >>> sorted(o.id for o in container.findSources(app['ob21'], 2))
+    ['ob20', 'ob22', 'ob25']
+
+`findRelationships`
+
+    >>> sorted(
+    ...     [repr(rel) for rel in path]
+    ...     for path in container.findRelationships(app['ob21'], maxDepth=2))
+    ...     # doctest: +NORMALIZE_WHITESPACE
+    [['<Relationship from (<Demo ob21>,) to (<Demo ob22>,)>'],
+     ['<Relationship from (<Demo ob21>,) to (<Demo ob22>,)>',
+      '<Relationship from (<Demo ob22>,) to (<Demo ob25>,)>'],
+     ['<Relationship from (<Demo ob21>,) to (<Demo ob23>,)>']]
+
+    >>> sorted(
+    ...     [repr(rel) for rel in path]
+    ...     for path in container.findRelationships(
+    ...         target=app['ob23'], maxDepth=2))
+    ...     # doctest: +NORMALIZE_WHITESPACE
+    [['<Relationship from (<Demo ob20>,) to (<Demo ob21>,)>',
+      '<Relationship from (<Demo ob21>,) to (<Demo ob23>,)>'],
+     ['<Relationship from (<Demo ob20>,) to (<Demo ob23>,)>'],
+     ['<Relationship from (<Demo ob21>,) to (<Demo ob23>,)>'],
+     ['<Relationship from (<Demo ob25>,) to (<Demo ob21>,)>',
+      '<Relationship from (<Demo ob21>,) to (<Demo ob23>,)>']]
+
+    >>> list(container.findRelationships(
+    ...      app['ob20'], app['ob25'], maxDepth=None))
+    ...     # doctest: +NORMALIZE_WHITESPACE
+    [(<Relationship from (<Demo ob20>,) to (<Demo ob21>,)>,
+      <Relationship from (<Demo ob21>,) to (<Demo ob22>,)>,
+      <Relationship from (<Demo ob22>,) to (<Demo ob25>,)>)]
+    
+    >>> list(
+    ...     [repr(rel) for rel in path]
+    ...     for path in container.findRelationships(
+    ...         app['ob20'], maxDepth=None)
+    ...         if interfaces.ICircularRelationshipPath.providedBy(path))
+    ...     # doctest: +NORMALIZE_WHITESPACE
+    [['<Relationship from (<Demo ob20>,) to (<Demo ob21>,)>',
+      '<Relationship from (<Demo ob21>,) to (<Demo ob22>,)>',
+      '<Relationship from (<Demo ob22>,) to (<Demo ob25>,)>',
+      '<Relationship from (<Demo ob25>,) to (<Demo ob21>,)>']]
+
+`isLinked`
+
+    >>> container.isLinked(source=app['ob20'])
+    True
+    >>> container.isLinked(target=app['ob24'])
+    True
+    >>> container.isLinked(source=app['ob24'])
+    False
+    >>> container.isLinked(target=app['ob20'])
+    False
+    >>> container.isLinked(app['ob20'], app['ob22'], maxDepth=2)
+    True
+    >>> container.isLinked(app['ob20'], app['ob25'], maxDepth=2)
+    False
+
+`remove`
+
+    >>> res = list(container.findTargets(app['ob22'], None)) # before removal
+    >>> res[:2]
+    [<Demo ob25>, <Demo ob21>]
+    >>> container.remove(rel)
+    >>> list(container.findTargets(app['ob22'], None)) # after removal
+    [<Demo ob25>]
+
+`reindex`
+
+    >>> rel = iter(container.findRelationships(
+    ...     app['ob21'], app['ob23'])).next()[0]
+
+    >>> rel.target
+    <Demo ob23>
+    >>> rel.target = app['ob24'] # this calls reindex
+    >>> rel.target
+    <Demo ob24>
+
+    >>> rel.source
+    <Demo ob21>
+    >>> rel.source = app['ob22'] # this calls reindex
+    >>> rel.source
+    <Demo ob22>
+
+ManyToOneRelationship
+~~~~~~~~~~~~~~~~~~~~~
+
+A `ManyToOneRelationship` relates multiple sources to a single target.
+
+    >>> from zc.relationship.shared import ManyToOneRelationship
+    >>> rel = ManyToOneRelationship((app['ob22'], app['ob26']), app['ob24'])
+
+    >>> verifyObject(interfaces.IManyToOneRelationship, rel)
+    True
+
+    >>> container.add(rel)
+    >>> container.add(ManyToOneRelationship(
+    ...     (app['ob26'], app['ob23']),
+    ...     app['ob20']))
+
+The relationship diagram now looks like this::
+
+        ob20              (ob22, obj26)       (ob26, obj23)
+        |   |\                  |                   |
+      ob21  | |               obj24               obj20
+      |     | |
+    ob22    | ob23
+      |  \  |
+    ob25  ob24
+
+We created a cycle for obj20 via obj23.
+
+    >>> sorted(o.id for o in container.findSources(app['ob24'], None))
+    ['ob20', 'ob21', 'ob22', 'ob23', 'ob26']
+
+    >>> sorted(o.id for o in container.findSources(app['ob20'], None))
+    ['ob20', 'ob23', 'ob26']
+
+    >>> list(container.findRelationships(app['ob20'], app['ob20'], None))
+    ... # doctest: +NORMALIZE_WHITESPACE
+    [cycle(<Relationship from (<Demo ob20>,) to (<Demo ob23>,)>,
+           <Relationship from (<Demo ob26>, <Demo ob23>) to (<Demo ob20>,)>)]
+    >>> list(container.findRelationships(
+    ...     app['ob20'], app['ob20'], 2))[0].cycled
+    [{'source': <Demo ob20>}]
+
+The `ManyToOneRelationship`'s `sources` attribute is mutable, while it's
+`targets` attribute is immutable.
+
+    >>> rel.sources
+    (<Demo ob22>, <Demo ob26>)
+    >>> rel.sources = [app['ob26'], app['ob24']]
+
+    >>> rel.targets
+    (<Demo ob24>,)
+    >>> rel.targets = (app['ob22'],)
+    Traceback (most recent call last):
+    ...
+    AttributeError: can't set attribute
+
+But the relationship has an additional mutable `target` attribute.
+
+    >>> rel.target
+    <Demo ob24>
+    >>> rel.target = app['ob22']
+
+OneToManyRelationship
+~~~~~~~~~~~~~~~~~~~~~
+
+A `OneToManyRelationship` relates a single source to multiple targets.
+
+    >>> from zc.relationship.shared import OneToManyRelationship
+    >>> rel = OneToManyRelationship(app['ob22'], (app['ob20'], app['ob27']))
+
+    >>> verifyObject(interfaces.IOneToManyRelationship, rel)
+    True
+
+    >>> container.add(rel)
+    >>> container.add(OneToManyRelationship(
+    ...     app['ob20'],
+    ...     (app['ob23'], app['ob28'])))
+
+The updated diagram looks like this::
+
+        ob20              (ob26, obj24)       (ob26, obj23)
+        |   |\                  |                   |
+      ob21  | |               obj22               obj20
+      |     | |                 |                   |
+    ob22    | ob23        (ob20, obj27)       (ob23, obj28)
+      |  \  |
+    ob25  ob24
+
+Alltogether there are now three cycles for ob22.
+
+    >>> sorted(o.id for o in container.findTargets(app['ob22']))
+    ['ob20', 'ob24', 'ob25', 'ob27']
+    >>> sorted(o.id for o in container.findTargets(app['ob22'], None))
+    ['ob20', 'ob21', 'ob22', 'ob23', 'ob24', 'ob25', 'ob27', 'ob28']
+
+    >>> sorted(o.id for o in container.findTargets(app['ob20']))
+    ['ob21', 'ob23', 'ob24', 'ob28']
+    >>> sorted(o.id for o in container.findTargets(app['ob20'], None))
+    ['ob20', 'ob21', 'ob22', 'ob23', 'ob24', 'ob25', 'ob27', 'ob28']
+
+    >>> sorted(container.findRelationships(app['ob22'], app['ob22'], None))
+    ... # doctest: +NORMALIZE_WHITESPACE
+    [cycle(<Relationship from (<Demo ob22>,) to (<Demo ob20>, <Demo ob27>)>,
+           <Relationship from (<Demo ob20>,) to (<Demo ob21>,)>,
+           <Relationship from (<Demo ob21>,) to (<Demo ob22>,)>),
+     cycle(<Relationship from (<Demo ob22>,) to (<Demo ob20>, <Demo ob27>)>,
+           <Relationship from (<Demo ob20>,) to (<Demo ob24>,)>,
+           <Relationship from (<Demo ob26>, <Demo ob24>) to (<Demo ob22>,)>),
+     cycle(<Relationship from (<Demo ob22>,) to (<Demo ob24>,)>,
+           <Relationship from (<Demo ob26>, <Demo ob24>) to (<Demo ob22>,)>)]
+
+The `OneToManyRelationship`'s `targets` attribute is mutable, while it's
+`sources` attribute is immutable.
+
+    >>> rel.targets
+    (<Demo ob20>, <Demo ob27>)
+    >>> rel.targets = [app['ob28'], app['ob21']]
+
+    >>> rel.sources
+    (<Demo ob22>,)
+    >>> rel.sources = (app['ob23'],)
+    Traceback (most recent call last):
+    ...
+    AttributeError: can't set attribute
+
+But the relationship has an additional mutable `source` attribute.
+
+    >>> rel.source
+    <Demo ob22>
+    >>> rel.target = app['ob23']
