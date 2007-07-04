@@ -149,7 +149,7 @@ class ManyToOneRelationship(ImmutableRelationship):
     interface.implements(interfaces.IManyToOneRelationship)
 
     def __init__(self, sources, target):
-        super(OneToManyRelationship, self).__init__(sources, (target,))
+        super(ManyToOneRelationship, self).__init__(sources, (target,))
 
     @apply
     def sources():
@@ -253,10 +253,14 @@ class AbstractContainer(persistent.Persistent):
                  filter=None):
         tokenize = self.relationIndex.tokenizeQuery
         if source is not None:
+            if target is not None:
+                targetQuery = tokenize({'target': target})
+            else:
+                targetQuery = None
             return self.relationIndex.isLinked(
                 tokenize({'source': source}),
                 maxDepth, filter and ResolvingFilter(filter, self),
-                target is not None and tokenize({'target': target}) or None,
+                targetQuery,
                 targetFilter=minDepthFilter(minDepth))
         elif target is not None:
             return self.relationIndex.isLinked(
@@ -289,10 +293,14 @@ class AbstractContainer(persistent.Persistent):
                                minDepth=None, filter=None):
         tokenize = self.relationIndex.tokenizeQuery
         if source is not None:
+            if target is not None:
+                targetQuery = tokenize({'target': target})
+            else:
+                targetQuery = None
             res = self.relationIndex.findRelationshipTokenChains(
                 tokenize({'source': source}),
                 maxDepth, filter and ResolvingFilter(filter, self),
-                target and tokenize({'target': target}),
+                targetQuery,
                 targetFilter=minDepthFilter(minDepth))
             return self._forward(res)
         elif target is not None:

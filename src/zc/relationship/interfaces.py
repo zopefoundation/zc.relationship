@@ -172,15 +172,15 @@ class IRelationship(interface.Interface):
 class IMutableRelationship(IRelationship):
     """An asymmetric relationship.  Sources and targets can be changed."""
 
-class ISourceRelationship(IRelationship):
+class ISourceRelationship(IMutableRelationship):
 
     source = interface.Attribute(
         """the source for this object.  Mutable""")
 
-class ITargetRelationship(IRelationship):
+class ITargetRelationship(IMutableRelationship):
 
-    source = interface.Attribute(
-        """the source for this object.  Mutable""")
+    target = interface.Attribute(
+        """the target for this object.  Mutable""")
 
 class IOneToOneRelationship(ISourceRelationship, ITargetRelationship):
     pass
