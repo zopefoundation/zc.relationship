@@ -5,12 +5,35 @@ CHANGES
 1.1
 ===
 
-(unreleased; supports Zope 3.4/Zope 2.11/ZODB 3.8, also unreleased)
+(supports Zope 3.4/Zope 2.11/ZODB 3.8)
 
-- adjust to BTrees changes in ZODB 3.8 (thanks Jürgen Kartnaller)
+1.1.0
+-----
+
+- adjust to BTrees changes in ZODB 3.8 (thanks Juergen Kartnaller)
+
+- converted buildout to rely exclusively on eggs  
+
+1.0
+===
+
+(supports Zope 3.3/Zope 2.10/ZODB 3.7)
+
+1.0.2
+-----
+
+- Incorporated tests and bug fixes to relationship containers from
+  Markus Kemmerling:
+
+  * ManyToOneRelationship instantiation was broken
+  
+  * The `findRelationships` method misbehaved if both, `source` and `target`,
+    are not None, but `bool(target)` evaluated to False.
+    
+  * ISourceRelationship and ITargetRelationship had errors.
 
 1.0.1
-=====
+-----
 
 (supports Zope 3.3/Zope 2.10/ZODB 3.7)
 
@@ -26,7 +49,7 @@ CHANGES
   Reported by Gabriel Shaar.
 
 1.0
-===
+---
 
 (supports Zope 3.3/Zope 2.10/ZODB 3.7)
 
