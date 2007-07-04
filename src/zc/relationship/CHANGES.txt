@@ -5,7 +5,7 @@ Changes
 2.0
 ===
 
-supports Zope 3.4/Zope 2.11/ZODB 3.8
+(dev version; supports Zope 3.4/Zope 2.11/ZODB 3.8)
 
 New Requirements
 ----------------
@@ -55,22 +55,6 @@ Changes in 2.0 alpha
   code is unlikely to change without contributions: I use the index
   exclusively.  See plone.relations for a zc.relationship container with
   very good test coverage.
-
-TODO in 2.0 alpha
------------------
-
-- XXX You can now instantiate the index with a new argument,
-  `transitiveIndexes`.  This specifies zero or more indices, each for a single
-  value or for relationships, for a given transitive factory, for unlimited
-  depth queries.  These indices will be used transparently, if appropriate,
-  in calls to find Values, findValueTokens, findRelationships, and
-  findRelationshipTokens.  In order to support this, transitive query
-  factories must implement a new interface, IXXX, that allows them to be
-  compared for equality.
-
-- XXX make it possible to have a query that takes multiple tokens for a given
-  argument, with the semantics of a union of the results.  PROBABLY WON'T
-  HAPPEN FOR 2.0; SPELLING UNCLEAR
 
 1.1
 ===
