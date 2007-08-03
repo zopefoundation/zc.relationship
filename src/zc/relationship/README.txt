@@ -26,6 +26,10 @@ http://dev.plone.org/plone/browser/plone.relations/trunk/plone/relations
 This current document describes the relationship index.  See
 container.txt for documentation of the relationship container.
 
+**PLEASE NOTE: the index in zc.relationship, described below, now exists for
+backwards compatibility.  zc.relation.catalog now contains the most recent,
+backward-incompatible version of the index code.**
+
 =====
 Index
 =====
@@ -1902,7 +1906,7 @@ true for unindex.
     >>> ix.findRelationshipTokens({'supervisor': 'Duane'}, maxDepth=3)
     Traceback (most recent call last):
     ...
-    ValueError: if maxDepth != 1, transitiveQueriesFactory must be available
+    ValueError: if maxDepth not in (None, 1), queryFactory must be available
 
     >>> ix.defaultTransitiveQueriesFactory = factory
 
@@ -1973,7 +1977,7 @@ true for unindex.
     ... # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    ValueError: ('Duplicate in attrs', 'objects', <...Attribute ...>)
+    ValueError: ('name already used', 'objects')
 
     >>> ix = index.Index(
     ...     ({'callable': subjects, 'multiple': True, 'name': 'subjects'},
@@ -1981,10 +1985,11 @@ true for unindex.
     ...      {'callable': subjects, 'multiple': True, 'name': 'objects'},
     ...      IContextAwareRelationship['getContext']),
     ...     index.TransposingTransitiveQueriesFactory('subjects', 'objects'))
-    ... # doctest: +ELLIPSIS
+    ... # doctest: +ELLIPSIS +NORMALIZE_WHITESPACE
     Traceback (most recent call last):
     ...
-    ValueError: ('Duplicate in attrs', 'objects', <...AttrGetter ...>)
+    ValueError: ('element already indexed',
+                 <zc.relationship.README.AttrGetter object at ...>)
 
     >>> ix = index.Index(
     ...     ({'element': IRelationship['objects'], 'multiple': True,
@@ -1993,16 +1998,17 @@ true for unindex.
     ...      {'element': IRelationship['objects'], 'multiple': True},
     ...      IContextAwareRelationship['getContext']),
     ...     index.TransposingTransitiveQueriesFactory('subjects', 'objects'))
-    ... # doctest: +ELLIPSIS
+    ... # doctest: +ELLIPSIS +NORMALIZE_WHITESPACE
     Traceback (most recent call last):
     ...
-    ValueError: ('Duplicate in attrs', 'objects', <...Attribute ...>)
+    ValueError: ('element already indexed',
+                 <zope.interface.interface.Attribute object at ...>)
 
 .. [#neither_or_both] It is not allowed to provide only one or the other of
     'load' and 'dump'.
 
     >>> ix = index.Index(
-    ...     ({'element': IRelationship['objects'], 'multiple': True,
+    ...     ({'element': IRelationship['subjects'], 'multiple': True,
     ...       'name': 'subjects','dump': None},
     ...      IRelationship['relationshiptype'],
     ...      {'element': IRelationship['objects'], 'multiple': True},

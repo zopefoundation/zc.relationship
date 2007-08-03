@@ -7,10 +7,18 @@ Changes
 
 (dev version; supports Zope 3.4/Zope 2.11/ZODB 3.8)
 
+The 2.x line should be almost completely compatible with the 1.x line. 
+The one notable incompatibility does not affect the use of relationship
+containers and is small enough that it will hopefully affect noone.  If
+anyone using the 1.x line objects to the incompatibility during the
+alpha release, I will consider making it compatible (which will break
+some parallels in the API).
+
 New Requirements
 ----------------
 
 - ZODB 3.8
+- zc.relation
 
 Incompatibilities with 1.0
 --------------------------
@@ -18,11 +26,14 @@ Incompatibilities with 1.0
 - `findRelationships` will now use the defaultTransitiveQueriesFactory if it
   is set.
 
-- `deactivateSets` is no longer an instantiation option (it was broken because
-  of a ZODB bug anyway, as had been described in the documentation).
+- Some instantiation exceptions have different error messages.
 
 Changes in 2.0 alpha
 --------------------
+
+- the relationship index code has been moved out to zc.relation and
+  significantly refactored there.  A fully backwards compatible subclass
+  remains in zc.relationship.index
 
 - support both 64-bit and 32-bit BTree families
 
@@ -54,7 +65,7 @@ Changes in 2.0 alpha
   module.  (Note that the significantly lower test coverage of the container
   code is unlikely to change without contributions: I use the index
   exclusively.  See plone.relations for a zc.relationship container with
-  very good test coverage.
+  very good test coverage.)
 
 1.1
 ===

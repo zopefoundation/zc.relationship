@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="zc.relationship",
-    version="2.0dev",
+    version="2.0a1",
     packages=find_packages('src'),
     include_package_data=True,
     package_dir= {'':'src'},
@@ -28,6 +28,7 @@ setup(
         'zope.app.keyreference',
         'zope.location',
         'zope.index',
+        'zc.relation',
         
         'zope.app.testing', # TODO remove this
         'zope.app.component', # TODO remove this

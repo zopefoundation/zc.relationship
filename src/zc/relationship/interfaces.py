@@ -18,13 +18,9 @@ $Id$
 from zope import interface
 from zope.app.container.interfaces import IReadContainer
 import zope.index.interfaces
+import zc.relation.interfaces
 
-class ICircularRelationshipPath(interface.Interface):
-    """A tuple that has a circular relationship in the very final element of
-    the path."""
-
-    cycled = interface.Attribute(
-        """a list of the searches needed to continue the cycle""")
+ICircularRelationshipPath = zc.relation.interfaces.ICircularRelationPath
 
 class ITransitiveQueriesFactory(interface.Interface):
     def __call__(relchain, query, index, cache):
