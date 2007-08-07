@@ -92,12 +92,6 @@ def resolveToken(token, index, cache):
 ##############################################################################
 # the relationship index
 
-def getModuleTools(module):
-    return dict(
-        (nm, getattr(module, nm, None)) for nm in 
-        ('BTree', 'TreeSet', 'Bucket', 'Set',
-         'intersection', 'multiunion', 'union', 'difference'))
-
 class Index(zc.relation.catalog.Catalog,
             zope.app.container.contained.Contained):
     interface.implementsOnly(
@@ -139,9 +133,6 @@ class Index(zc.relation.catalog.Catalog,
 
     # disable search indexes
     _iterListeners = zc.relation.catalog.Catalog.iterListeners
-    def _getSearchIndexResults(self, name, query, maxDepth, filter,
-                               targetQuery, targetFilter, queryFactory):
-        return None
     addSearchIndex = iterSearchIndexes = removeSearchIndex = None
 
     def documentCount(self):
