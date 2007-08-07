@@ -1033,16 +1033,17 @@ Alltogether there are now three cycles for ob22.
     >>> sorted(o.id for o in container.findTargets(app['ob20'], None))
     ['ob20', 'ob21', 'ob22', 'ob23', 'ob24', 'ob25', 'ob27', 'ob28']
 
-    >>> sorted(container.findRelationships(app['ob22'], app['ob22'], None))
+    >>> sorted(repr(c) for c in
+    ...        container.findRelationships(app['ob22'], app['ob22'], None))
     ... # doctest: +NORMALIZE_WHITESPACE
-    [cycle(<Relationship from (<Demo ob22>,) to (<Demo ob20>, <Demo ob27>)>,
-           <Relationship from (<Demo ob20>,) to (<Demo ob21>,)>,
-           <Relationship from (<Demo ob21>,) to (<Demo ob22>,)>),
-     cycle(<Relationship from (<Demo ob22>,) to (<Demo ob20>, <Demo ob27>)>,
-           <Relationship from (<Demo ob20>,) to (<Demo ob24>,)>,
-           <Relationship from (<Demo ob26>, <Demo ob24>) to (<Demo ob22>,)>),
-     cycle(<Relationship from (<Demo ob22>,) to (<Demo ob24>,)>,
-           <Relationship from (<Demo ob26>, <Demo ob24>) to (<Demo ob22>,)>)]
+    ['cycle(<Relationship from (<Demo ob22>,) to (<Demo ob20>, <Demo ob27>)>,
+            <Relationship from (<Demo ob20>,) to (<Demo ob21>,)>,
+            <Relationship from (<Demo ob21>,) to (<Demo ob22>,)>)',
+     'cycle(<Relationship from (<Demo ob22>,) to (<Demo ob20>, <Demo ob27>)>,
+            <Relationship from (<Demo ob20>,) to (<Demo ob24>,)>,
+            <Relationship from (<Demo ob26>, <Demo ob24>) to (<Demo ob22>,)>)',
+     'cycle(<Relationship from (<Demo ob22>,) to (<Demo ob24>,)>,
+            <Relationship from (<Demo ob26>, <Demo ob24>) to (<Demo ob22>,)>)']
 
 The `OneToManyRelationship`'s `targets` attribute is mutable, while it's
 `sources` attribute is immutable.
