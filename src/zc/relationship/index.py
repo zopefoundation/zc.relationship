@@ -202,13 +202,13 @@ class Index(zc.relation.catalog.Catalog,
 
     def findValueTokens(self, resultName, query=(), maxDepth=None,
                         filter=None, targetQuery=None, targetFilter=None,
-                        transitiveQueriesFactory=None):
+                        transitiveQueriesFactory=None, _ignored=None):
         # argument names changed slightly
         if targetQuery is None:
             targetQuery = ()
         return super(Index, self).findValueTokens(
             resultName, query, maxDepth, filter, targetQuery, targetFilter,
-            transitiveQueriesFactory)
+            transitiveQueriesFactory, True)
 
     def findValues(self, resultName, query=(), maxDepth=None, filter=None,
                    targetQuery=None, targetFilter=None,
@@ -232,13 +232,13 @@ class Index(zc.relation.catalog.Catalog,
 
     def findRelationshipTokens(self, query=(), maxDepth=None, filter=None,
                                targetQuery=None, targetFilter=None,
-                               transitiveQueriesFactory=None):
+                               transitiveQueriesFactory=None, _ignored=None):
         # argument names changed slightly
         if targetQuery is None:
             targetQuery = ()
         return super(Index, self).findRelationTokens(
             query, maxDepth, filter, targetQuery, targetFilter,
-            transitiveQueriesFactory)
+            transitiveQueriesFactory, True)
 
     def findRelationshipTokenChains(self, query=(), maxDepth=None, filter=None,
                                     targetQuery=None, targetFilter=None,
