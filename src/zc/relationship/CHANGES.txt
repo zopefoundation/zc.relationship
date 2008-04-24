@@ -5,31 +5,25 @@ Changes
 2.0
 ===
 
-(dev version; supports Zope 3.4/Zope 2.11/ZODB 3.8)
-
-The 2.x line should be almost completely compatible with the 1.x line. 
+The 2.x line is almost completely compatible with the 1.x line. 
 The one notable incompatibility does not affect the use of relationship
-containers and is small enough that it will hopefully affect noone.  If
-anyone using the 1.x line objects to the incompatibility during the
-alpha release, I will consider making it compatible (which will break
-some parallels in the API).
+containers and is small enough that it will hopefully affect noone.
 
 New Requirements
 ----------------
 
-- ZODB 3.8
 - zc.relation
 
 Incompatibilities with 1.0
 --------------------------
 
 - `findRelationships` will now use the defaultTransitiveQueriesFactory if it
-  is set.
+  is set.  Set ``maxDepth`` to 1 if you do not want this behavior.
 
 - Some instantiation exceptions have different error messages.
 
-Changes in 2.0 alpha
---------------------
+Changes in 2.0
+--------------
 
 - the relationship index code has been moved out to zc.relation and
   significantly refactored there.  A fully backwards compatible subclass
