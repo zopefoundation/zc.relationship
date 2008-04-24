@@ -1,2 +1,1 @@
-Low-level ZODB relationship index: supports intransitive and transitive n-ary
-relationships.  Example usage of "relationship containers".
+Zope 3 relationship index.  Precursor to zc.relation.

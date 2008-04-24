@@ -1,3 +1,7 @@
+~~~~~~~~~~~~~~~
+zc.relationship
+~~~~~~~~~~~~~~~
+
 The zc.relationship package currently contains two main types of
 components: a relationship index, and some relationship containers. 
 Both are designed to be used within the ZODB, although the index is
