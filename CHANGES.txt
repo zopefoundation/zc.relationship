@@ -7,6 +7,11 @@ CHANGES
 
 (supports Zope 3.4/Zope 2.11/ZODB 3.8)
 
+1.1.1
+-----
+
+- Fix name errors caught by pyflakes.
+
 1.1.0
 -----
 

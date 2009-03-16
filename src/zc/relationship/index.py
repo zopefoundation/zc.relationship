@@ -1,6 +1,3 @@
-import re
-import types
-
 import persistent
 import persistent.interfaces
 from BTrees import OOBTree, IFBTree, IOBTree, Length
@@ -119,7 +116,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
             res['attrname'] = val.__name__
             res['name'] = data.get('name', res['attrname'])
             if res['name'] in _attrs or val in seen:
-                raise ValueError('Duplicate in attrs', name, val)
+                raise ValueError('Duplicate in attrs', res['name'], val)
             seen.add(val)
             _attrs[res['name']] = res
             res['dump'] = data.get('dump', generateToken)
@@ -356,7 +353,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
     def resolveValueTokens(self, tokens, name):
         load = self._attrs[name]['load']
         if load is None:
-            return values
+            return tokens
         cache = {}
         return (load(t, self, cache) for t in tokens)
 
@@ -483,7 +480,7 @@ class Index(persistent.Persistent, zope.app.container.contained.Contained):
                         targetQuery=None, targetFilter=None,
                         transitiveQueriesFactory=None):
         if resultName not in self._attrs:
-            raise ValueError('name not indexed', nm)
+            raise ValueError('name not indexed', resultName)
         return self._yieldValueTokens(
             resultName, *self._parse(
                 query, maxDepth, filter, targetQuery, targetFilter,
