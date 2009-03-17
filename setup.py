@@ -22,6 +22,7 @@ setup(
     install_requires=[
         'ZODB3',
         'zope.app.container', # would be nice to remove this
+        'zope.app.folder', # would be nice to remove this
         'zope.app.intid',
         'zope.interface',
         'zope.component',
