@@ -20,7 +20,7 @@ setup(
     license='ZPL 2.1',
     keywords="zope zope3",
     install_requires=[
-        'ZODB3 >= 3.8dev',
+        'ZODB3',
         'zope.app.container', # would be nice to remove this
         'zope.app.intid',
         'zope.interface',

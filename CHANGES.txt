@@ -10,6 +10,9 @@ CHANGES
 1.1.1
 -----
 
+- Add support for both ZODB 3.7 and ZODB 3.8 via a small import location
+  monkey patch.
+
 - Fix name errors caught by pyflakes.
 
 1.1.0
