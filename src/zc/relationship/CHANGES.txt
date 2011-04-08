@@ -5,7 +5,7 @@ Changes
 2.0
 ===
 
-The 2.x line is almost completely compatible with the 1.x line. 
+The 2.x line is almost completely compatible with the 1.x line.
 The one notable incompatibility does not affect the use of relationship
 containers and is small enough that it will hopefully affect noone.
 
@@ -42,7 +42,7 @@ Changes in 2.0
 
   In these and other cases, you should not ever mutate returned results!
   They may be internal data structures (and are intended to be so, so
-  that they can be used for efficient set operations for other uses). 
+  that they can be used for efficient set operations for other uses).
   The interfaces hopefully clarify what calls will return an internal
   data structure.
 
@@ -61,6 +61,11 @@ Changes in 2.0
   exclusively.  See plone.relations for a zc.relationship container with
   very good test coverage.)
 
+- Fixed tests to run on Python 2.6.
+
+- Added test extra to declare test dependency on ``zope.app.folder``.
+
+
 1.1
 ===
 
@@ -71,7 +76,7 @@ Changes in 2.0
 
 - adjust to BTrees changes in ZODB 3.8 (thanks Juergen Kartnaller)
 
-- converted buildout to rely exclusively on eggs  
+- converted buildout to rely exclusively on eggs
 
 1.0
 ===
@@ -85,10 +90,10 @@ Changes in 2.0
   Markus Kemmerling:
 
   * ManyToOneRelationship instantiation was broken
-  
+
   * The `findRelationships` method misbehaved if both, `source` and `target`,
     are not None, but `bool(target)` evaluated to False.
-    
+
   * ISourceRelationship and ITargetRelationship had errors.
 
 1.0.1

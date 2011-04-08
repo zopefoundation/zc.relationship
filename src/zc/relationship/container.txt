@@ -146,7 +146,7 @@ More interestingly, lets examine some of the searching methods.  What are the
 direct targets of ob0?
 
     >>> container.findTargets(app['ob0']) # doctest: +ELLIPSIS
-    <generator object at ...>
+    <generator object ...>
 
 Ah-ha! It's a generator!  Let's try that again.
 
@@ -219,7 +219,7 @@ finds all sources.  Using the same relationship tree built above, we'll search
 for some sources.
 
     >>> container.findSources(app['ob0']) # doctest: +ELLIPSIS
-    <generator object at ...>
+    <generator object ...>
     >>> list(container.findSources(app['ob0']))
     []
     >>> list(o.id for o in container.findSources(app['ob4']))
@@ -266,7 +266,7 @@ or `target` must be passed in.  A search depth defaults to one relationship
 deep, like the other methods.
 
     >>> container.findRelationships(source=app['ob0']) # doctest: +ELLIPSIS
-    <generator object at ...>
+    <generator object ...>
     >>> sorted(
     ...     [repr(rel) for rel in path]
     ...     for path in container.findRelationships(source=app['ob0']))
@@ -762,7 +762,7 @@ relationship path in findRelationships.
     ...     for path in container.findRelationships(
     ...         app['ob2'], app['ob4']))
     ...     # doctest: +NORMALIZE_WHITESPACE
-    [['<Relationship from 
+    [['<Relationship from
        (<Demo ob2>, <Demo ob4>, <Demo ob5>, <Demo ob6>, <Demo ob7>)
        to
        (<Demo ob1>, <Demo ob4>, <Demo ob8>, <Demo ob9>, <Demo ob10>)>'],
@@ -773,7 +773,7 @@ marked as a cycle.
 
     >>> list(container.findRelationships(app['ob4'], app['ob4']))
     ... # doctest: +NORMALIZE_WHITESPACE
-    [cycle(<Relationship from 
+    [cycle(<Relationship from
        (<Demo ob2>, <Demo ob4>, <Demo ob5>, <Demo ob6>, <Demo ob7>)
        to
        (<Demo ob1>, <Demo ob4>, <Demo ob8>, <Demo ob9>, <Demo ob10>)>,)]
@@ -880,7 +880,7 @@ defined there are actually one-to-one relationships).
     [(<Relationship from (<Demo ob20>,) to (<Demo ob21>,)>,
       <Relationship from (<Demo ob21>,) to (<Demo ob22>,)>,
       <Relationship from (<Demo ob22>,) to (<Demo ob25>,)>)]
-    
+
     >>> list(
     ...     [repr(rel) for rel in path]
     ...     for path in container.findRelationships(

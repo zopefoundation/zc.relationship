@@ -76,7 +76,7 @@ setup(
     packages=find_packages('src'),
     include_package_data=True,
     package_dir= {'':'src'},
-    
+
     namespace_packages=['zc'],
 
     zip_safe=False,
@@ -99,10 +99,14 @@ setup(
         'zope.location',
         'zope.index',
         'zc.relation',
-        
+
         'zope.app.testing',
         'zope.app.component',
         'zope.testing',
         'setuptools',
         ],
+    extras_require=dict(
+        test=[
+            'zope.app.folder',
+            ]),
     )
