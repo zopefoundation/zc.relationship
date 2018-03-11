@@ -11,8 +11,13 @@
 # FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
+from __future__ import print_function
+
+from setuptools import find_packages
+from setuptools import setup
+
 import os
-from setuptools import setup, find_packages
+
 
 # generic helpers primarily for the long_description
 try:
@@ -65,7 +70,7 @@ def text(*args, **kwargs):
         f.close()
         report = validateReST(res)
         if report:
-            print report
+            print(report)
             raise ValueError('ReST validation error')
     return res
 # end helpers; below this line should be code custom to this package
