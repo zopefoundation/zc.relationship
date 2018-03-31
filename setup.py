@@ -103,10 +103,10 @@ setup(
         'zope.location',
         'zope.index',
         'zc.relation',
-
         'zope.app.testing',
         'zope.app.component',
         'zope.testing',
+        'six',
         'setuptools',
         ],
     extras_require=dict(
