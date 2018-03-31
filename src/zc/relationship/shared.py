@@ -16,6 +16,7 @@
 $Id$
 """
 import random
+import six
 
 import persistent
 from zope import interface
@@ -41,9 +42,16 @@ else:
         zc.listcontainer.Contained):
         pass
 
+try:
+    apply
+except NameError:
+    # PY3
+    def apply(func, *args, **kw):
+        return func(*args, **kw)
+
+@interface.implementer(interfaces.IRelationship)
 class ImmutableRelationship(RelationshipBase):
-    interface.implements(interfaces.IRelationship)
-    
+
     _marker = __name__ = __parent__ = None
 
     def __init__(self, sources, targets):
@@ -61,8 +69,8 @@ class ImmutableRelationship(RelationshipBase):
     def __repr__(self):
         return '<Relationship from %r to %r>' % (self.sources, self.targets)
 
+@interface.implementer(interfaces.IMutableRelationship)
 class Relationship(ImmutableRelationship):
-    interface.implements(interfaces.IMutableRelationship)
 
     @apply
     def sources():
@@ -89,8 +97,8 @@ class Relationship(ImmutableRelationship):
 # some small conveniences; maybe overkill, but I wanted some for a client
 # package.
 
+@interface.implementer(interfaces.IOneToOneRelationship)
 class OneToOneRelationship(ImmutableRelationship):
-    interface.implements(interfaces.IOneToOneRelationship)
 
     def __init__(self, source, target):
         super(OneToOneRelationship, self).__init__((source,), (target,))
@@ -117,8 +125,8 @@ class OneToOneRelationship(ImmutableRelationship):
                 self.__parent__.reindex(self)
         return property(get, set)
 
+@interface.implementer(interfaces.IOneToManyRelationship)
 class OneToManyRelationship(ImmutableRelationship):
-    interface.implements(interfaces.IOneToManyRelationship)
 
     def __init__(self, source, targets):
         super(OneToManyRelationship, self).__init__((source,), targets)
@@ -145,8 +153,8 @@ class OneToManyRelationship(ImmutableRelationship):
                 self.__parent__.reindex(self)
         return property(get, set)
 
+@interface.implementer(interfaces.IManyToOneRelationship)
 class ManyToOneRelationship(ImmutableRelationship):
-    interface.implements(interfaces.IManyToOneRelationship)
 
     def __init__(self, sources, target):
         super(ManyToOneRelationship, self).__init__(sources, (target,))
@@ -188,7 +196,7 @@ class ResolvingFilter(object):
 def minDepthFilter(depth):
     if depth is None:
         return None
-    if not isinstance(depth, (int, long)) or depth < 1:
+    if not isinstance(depth, six.integer_types) or depth < 1:
         raise ValueError('invalid minDepth', depth)
     return lambda relchain, query, index, cache: len(relchain) >= depth
 
@@ -213,7 +221,7 @@ class AbstractContainer(persistent.Persistent):
             target['load'] = loadTarget
         if targetFamily is not None:
             target['btree'] = targetFamily
-        
+
         ix = index.Index(
             (source, target),
             index.TransposingTransitiveQueriesFactory('source', 'target'),

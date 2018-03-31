@@ -42,8 +42,8 @@ CircularRelationshipPath = zc.relation.catalog.CircularRelationPath
 ##############################################################################
 # a common case transitive queries factory
 
+@interface.implementer(interfaces.ITransitiveQueriesFactory)
 class TransposingTransitiveQueriesFactory(persistent.Persistent):
-    interface.implements(interfaces.ITransitiveQueriesFactory)
 
     def __init__(self, name1, name2):
         self.names = [name1, name2] # a list so we can use index
@@ -105,11 +105,12 @@ def resolveToken(token, index, cache):
 ##############################################################################
 # the relationship index
 
+@interface.implementer_only(
+    interfaces.IIndex, interface.implementedBy(persistent.Persistent),
+    interface.implementedBy(zope.app.container.contained.Contained)
+)
 class Index(zc.relation.catalog.Catalog,
             zope.app.container.contained.Contained):
-    interface.implementsOnly(
-        interfaces.IIndex, interface.implementedBy(persistent.Persistent),
-        interface.implementedBy(zope.app.container.contained.Contained))
 
     def __init__(self, attrs, defaultTransitiveQueriesFactory=None,
                  dumpRel=generateToken, loadRel=resolveToken,
@@ -158,7 +159,7 @@ class Index(zc.relation.catalog.Catalog,
         # there are two kinds of queries: values and relationships.
         if len(query) != 1:
             raise ValueError('one key in the primary query dictionary')
-        (searchType, query) = query.items()[0]
+        (searchType, query) = list(query.items())[0]
         if searchType=='relationships':
             relTools = self.getRelationModuleTools()
             if relTools['TreeSet'].__name__[:2] not in ('IF', 'LF'):
