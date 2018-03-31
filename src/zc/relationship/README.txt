@@ -73,6 +73,7 @@ similar to the primary key in a relational database, or in intid or
 keyreference in Zope 3--some way to uniquely identify an object, which
 sorts reliably and can be resolved to the object given the right context.
 
+    >>> from __future__ import print_function
     >>> employees = {} # we'll use this to resolve the "name" tokens
     >>> class Employee(object):
     ...     def __init__(self, name, supervisor=None):
@@ -83,9 +84,9 @@ sorts reliably and can be resolved to the object given the right context.
     ...         employees[name] = self
     ...     def __repr__(self): # to make the tests prettier...
     ...         return '<' + self.name + '>'
-    ...     def __cmp__(self, other): # to make the tests prettier...
+    ...     def __lt__(self, other): # to make the tests prettier...
     ...         # pukes if other doesn't have name
-    ...         return cmp(self.name, other.name)
+    ...         return self.name < other.name
     ...
 
 So, we need to define how to turn employees into their tokens.  That's
@@ -812,8 +813,8 @@ appropriate interface, and considers the value to be empty if it cannot adapt.
     ...
     >>> class Company(Base): pass
     ...
-    >>> class Relationship(persistent.Persistent, Contained):
-    ...     interface.implements(IRelationship)
+    >>> @interface.implementer(IRelationship)
+    ... class Relationship(persistent.Persistent, Contained):
     ...     def __init__(self, subjects, relationshiptype, objects):
     ...         self.subjects = subjects
     ...         assert relationshiptype in relTypes
@@ -827,9 +828,9 @@ appropriate interface, and considers the value to be empty if it cannot adapt.
     ...     pass
     ...
     >>> from zope import component
-    >>> class ContextRelationshipAdapter(object):
-    ...     component.adapts(ISpecialRelationship)
-    ...     interface.implements(IContextAwareRelationship)
+    >>> @component.adapter(ISpecialRelationship)
+    ... @interface.implementer(IContextAwareRelationship)
+    ... class ContextRelationshipAdapter(object):
     ...     def __init__(self, adapted):
     ...         self.adapted = adapted
     ...     def getContext(self):
@@ -840,8 +841,9 @@ appropriate interface, and considers the value to be empty if it cannot adapt.
     ...         return getattr(self.adapted, name)
     ...
     >>> component.provideAdapter(ContextRelationshipAdapter)
-    >>> class SpecialRelationship(Relationship):
-    ...     interface.implements(ISpecialRelationship)
+    >>> @interface.implementer(ISpecialRelationship)
+    ... class SpecialRelationship(Relationship):
+    ...     pass
     ...
     >>> people = {}
     >>> for p in ['Abe', 'Bran', 'Cathy', 'David', 'Emily', 'Fred', 'Gary',
@@ -1083,10 +1085,10 @@ search methods as well).
     True
     >>> for r in ix.resolveRelationshipTokens(res):
     ...     if r not in ix:
-    ...         print 'oops'
+    ...         print('oops')
     ...         break
     ... else:
-    ...     print 'correct'
+    ...     print('correct')
     ...
     correct
 
@@ -1290,8 +1292,8 @@ and target types:
   ...     name = interface.Attribute("The name of the value.")
   ...     value = interface.Attribute("The value associated with the name.")
 
-  >>> class StringRelation(persistent.Persistent, Contained):
-  ...     interface.implements(IStringRelation)
+  >>> @interface.implementer(IStringRelation)
+  ... class StringRelation(persistent.Persistent, Contained):
   ...
   ...     def __init__(self, name, value):
   ...         self.name = name
