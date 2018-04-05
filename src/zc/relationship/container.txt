@@ -566,8 +566,7 @@ We'll switch out ob3 and ob4, so the diagram looks like this. ::
     ['ob0', 'ob1']
     >>> sorted(ob.id for ob in container.findSources(app['ob4']))
     ['ob0']
-    >>> import six
-    >>> rel = six.next(
+    >>> rel = next(
     ...     iter(container.findRelationships(app['ob1'], app['ob3'])
     ... ))[0]
     >>> rel.targets
@@ -919,7 +918,7 @@ defined there are actually one-to-one relationships).
 
 `reindex`
 
-    >>> rel = six.next(
+    >>> rel = next(
     ...     iter(container.findRelationships(app['ob21'], app['ob23']))
     ... )[0]
 
