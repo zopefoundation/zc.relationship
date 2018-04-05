@@ -74,8 +74,10 @@ keyreference in Zope 3--some way to uniquely identify an object, which
 sorts reliably and can be resolved to the object given the right context.
 
     >>> from __future__ import print_function
+    >>> from functools import total_ordering
     >>> employees = {} # we'll use this to resolve the "name" tokens
-    >>> class Employee(object):
+    >>> @total_ordering
+    ... class Employee(object):
     ...     def __init__(self, name, supervisor=None):
     ...         if name in employees:
     ...             raise ValueError('employee with same name already exists')
@@ -84,6 +86,8 @@ sorts reliably and can be resolved to the object given the right context.
     ...         employees[name] = self
     ...     def __repr__(self): # to make the tests prettier...
     ...         return '<' + self.name + '>'
+    ...     def __eq__(self, other):
+    ...         return self is other
     ...     def __lt__(self, other): # to make the tests prettier...
     ...         # pukes if other doesn't have name
     ...         return self.name < other.name
@@ -413,9 +417,12 @@ non-empty string [#name_errors]_.
 .. [#name_errors] It's possible to pass a callable without a name, in which
     case you must explicitly specify a name.
 
-    >>> class AttrGetter(object):
+    >>> @total_ordering
+    ... class AttrGetter(object):
     ...     def __init__(self, attr):
     ...         self.attr = attr
+    ...     def __eq__(self, other):
+    ...         return self is other
     ...     def __lt__(self, other):
     ...         return self.attr < getattr(other, 'attr', other)
     ...     def __call__(self, obj, index, cache):
