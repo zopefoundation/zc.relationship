@@ -92,11 +92,11 @@ Python mapping interface.
     True
     >>> container.get(rel.__name__) is rel
     True
-    >>> container.get(17) is None
+    >>> container.get('17') is None
     True
     >>> rel.__name__ in container
     True
-    >>> 17 in container
+    >>> '17' in container
     False
     >>> list(container.items()) == [(rel.__name__, rel)]
     True
@@ -566,9 +566,9 @@ We'll switch out ob3 and ob4, so the diagram looks like this. ::
     ['ob0', 'ob1']
     >>> sorted(ob.id for ob in container.findSources(app['ob4']))
     ['ob0']
-
-    >>> rel = iter(container.findRelationships(
-    ...     app['ob1'], app['ob3'])).next()[0]
+    >>> rel = next(
+    ...     iter(container.findRelationships(app['ob1'], app['ob3'])
+    ... ))[0]
     >>> rel.targets
     (<Demo ob3>,)
 
@@ -918,8 +918,9 @@ defined there are actually one-to-one relationships).
 
 `reindex`
 
-    >>> rel = iter(container.findRelationships(
-    ...     app['ob21'], app['ob23'])).next()[0]
+    >>> rel = next(
+    ...     iter(container.findRelationships(app['ob21'], app['ob23']))
+    ... )[0]
 
     >>> rel.target
     <Demo ob23>

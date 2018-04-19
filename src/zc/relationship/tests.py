@@ -16,7 +16,7 @@
 $Id$
 """
 import unittest
-from zope.testing import doctest
+import doctest
 import zope.testing.module
 
 # these are used by setup
@@ -102,7 +102,7 @@ def test_suite():
         doctest.DocFileSuite(
             'README.txt',
             setUp=READMESetUp, tearDown=READMETearDown,
-            optionflags=doctest.INTERPRET_FOOTNOTES),
+        ),
         doctest.DocFileSuite(
             'container.txt', setUp=keyrefSetUp, tearDown=tearDown),
         doctest.DocFileSuite(

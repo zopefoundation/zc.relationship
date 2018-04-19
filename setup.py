@@ -12,7 +12,6 @@
 #
 ##############################################################################
 from __future__ import print_function
-
 from setuptools import find_packages
 from setuptools import setup
 
@@ -91,6 +90,15 @@ setup(
     long_description=text(
         'src/zc/relationship/README.txt',
         'src/zc/relationship/CHANGES.txt'),
+    classifiers=[
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+    ],
     license='ZPL 2.1',
     keywords="zope zope3",
     install_requires=[
@@ -103,10 +111,10 @@ setup(
         'zope.location',
         'zope.index',
         'zc.relation',
-
         'zope.app.testing',
         'zope.app.component',
         'zope.testing',
+        'six',
         'setuptools',
         ],
     extras_require=dict(
