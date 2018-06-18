@@ -39,7 +39,6 @@ Index
 =====
 
 .. contents::
-   :local:
 
 Overview
 ========

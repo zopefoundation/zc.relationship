@@ -11,85 +11,33 @@
 # FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
-from __future__ import print_function
 from setuptools import find_packages
 from setuptools import setup
 
 import os
 
 
-# generic helpers primarily for the long_description
-try:
-    import docutils
-except ImportError:
-    import warnings
-    def validateReST(text):
-        return ''
-else:
-    import docutils.utils
-    import docutils.parsers.rst
-    import StringIO
-    def validateReST(text):
-        doc = docutils.utils.new_document('validator')
-        # our desired settings
-        doc.reporter.halt_level = 5
-        doc.reporter.report_level = 1
-        stream = doc.reporter.stream = StringIO.StringIO()
-        # docutils buglets (?)
-        doc.settings.tab_width = 2
-        doc.settings.pep_references = doc.settings.rfc_references = False
-        doc.settings.trim_footnote_reference_space = None
-        # and we're off...
-        parser = docutils.parsers.rst.Parser()
-        parser.parse(text, doc)
-        return stream.getvalue()
+def read(path):
+    """Read the contents of a file system path."""
+    with open(os.path.join(*path.split('/'))) as f:
+        return f.read()
 
-def text(*args, **kwargs):
-    # note: distutils explicitly disallows unicode for setup values :-/
-    # http://docs.python.org/dist/meta-data.html
-    tmp = []
-    for a in args:
-        if a.endswith('.txt'):
-            f = open(os.path.join(*a.split('/')))
-            tmp.append(f.read())
-            f.close()
-            tmp.append('\n\n')
-        else:
-            tmp.append(a)
-    if len(tmp) == 1:
-        res = tmp[0]
-    else:
-        res = ''.join(tmp)
-    out = kwargs.get('out')
-    if out is True:
-        out = 'TEST_THIS_REST_BEFORE_REGISTERING.txt'
-    if out:
-        f = open(out, 'w')
-        f.write(res)
-        f.close()
-        report = validateReST(res)
-        if report:
-            print(report)
-            raise ValueError('ReST validation error')
-    return res
-# end helpers; below this line should be code custom to this package
 
 setup(
     name="zc.relationship",
-    version="2.0c1",
+    version="2.0.dev1",
     packages=find_packages('src'),
     include_package_data=True,
-    package_dir= {'':'src'},
-
+    package_dir={'': 'src'},
     namespace_packages=['zc'],
-
     zip_safe=False,
     author='Gary Poster',
     author_email='gary@zope.com',
-    description=text("README.txt"),
-    long_description=text(
-        'src/zc/relationship/README.txt',
-        'src/zc/relationship/CHANGES.txt'),
+    description="Zope 3 relationship index.  Precursor to zc.relation.",
+    long_description="\n\n".join([
+        read('src/zc/relationship/README.txt'),
+        read('src/zc/relationship/CHANGES.txt'),
+    ]),
     classifiers=[
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
@@ -103,22 +51,22 @@ setup(
     keywords="zope zope3",
     install_requires=[
         'ZODB3 >= 3.8dev',
-        'zope.app.container', # would be nice to remove this
+        'zope.app.container',  # would be nice to remove this
         'zope.app.intid',
         'zope.interface',
         'zope.component',
         'zope.app.keyreference',
         'zope.location',
         'zope.index',
-        'zc.relation',
+        'zc.relation >= 1.1',
         'zope.app.testing',
         'zope.app.component',
         'zope.testing',
         'six',
         'setuptools',
-        ],
+    ],
     extras_require=dict(
         test=[
             'zope.app.folder',
-            ]),
-    )
+        ]),
+)
