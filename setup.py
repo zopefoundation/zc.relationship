@@ -36,14 +36,13 @@ setup(
     description="Zope 3 relationship index.  Precursor to zc.relation.",
     long_description="\n\n".join([
         read('src/zc/relationship/README.txt'),
+        read('src/zc/relationship/container.txt'),
         read('src/zc/relationship/CHANGES.txt'),
     ]),
     classifiers=[
-        'Programming Language :: Python',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
