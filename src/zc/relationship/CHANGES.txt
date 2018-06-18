@@ -61,7 +61,7 @@ Changes in 2.0
   exclusively.  See plone.relations for a zc.relationship container with
   very good test coverage.)
 
-- Tested with Python 2.7 and Python >= 3.4
+- Tested with Python 2.7 and Python >= 3.5
 
 - Added test extra to declare test dependency on ``zope.app.folder``.
 
