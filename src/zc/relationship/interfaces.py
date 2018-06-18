@@ -22,11 +22,13 @@ import zc.relation.interfaces
 
 ICircularRelationshipPath = zc.relation.interfaces.ICircularRelationPath
 
+
 class ITransitiveQueriesFactory(interface.Interface):
     def __call__(relchain, query, index, cache):
         """return iterable of queries to search further from given relchain.
         last relationship token in relchain is the most recent.
         query is original query that started the search."""
+
 
 class IFilter(interface.Interface):
     def __call__(relchain, query, index, cache):
@@ -36,6 +38,7 @@ class IFilter(interface.Interface):
         Used for the filter and targetFilter arguments of the IIndex query
         methods.  Cache is a dictionary that will be used throughout a given
         search."""
+
 
 class IIndex(zope.index.interfaces.IInjection,
              zope.index.interfaces.IIndexSearch,
@@ -103,9 +106,9 @@ class IIndex(zope.index.interfaces.IInjection,
     def isLinked(query, maxDepth=None, filter=None, targetQuery=None,
                  targetFilter=None, transitiveQueriesFactory=None):
         """boolean if there is any result for the given search.
-        
+
         Same arguments as findRelationshipChains.
-        
+
         The general algorithm for using the arguments is this:
         try to yield a single chain from findRelationshipTokenChains with the
         given arguments.  If one can be found, return True, else False."""
@@ -152,6 +155,7 @@ class IIndex(zope.index.interfaces.IInjection,
         the btree family for the value) of value tokens for that relationship.
         """
 
+
 class IRelationship(interface.Interface):
     """An asymmetric relationship."""
 
@@ -165,70 +169,77 @@ class IRelationship(interface.Interface):
     targets = interface.Attribute(
         """Objects being pointed to in the relationship.  Readonly.""")
 
+
 class IMutableRelationship(IRelationship):
     """An asymmetric relationship.  Sources and targets can be changed."""
+
 
 class ISourceRelationship(IMutableRelationship):
 
     source = interface.Attribute(
         """the source for this object.  Mutable""")
 
+
 class ITargetRelationship(IMutableRelationship):
 
     target = interface.Attribute(
         """the target for this object.  Mutable""")
 
+
 class IOneToOneRelationship(ISourceRelationship, ITargetRelationship):
     pass
+
 
 class IOneToManyRelationship(ISourceRelationship):
     pass
 
+
 class IManyToOneRelationship(ITargetRelationship):
     pass
+
 
 class IBidirectionalRelationshipIndex(interface.Interface):
 
     def findTargets(source, maxDepth=1, filter=None):
         """Given a source, iterate over objects to which it points.
-        
+
         maxDepth is the number of relationships through which the search
         should walk transitively.  It must be a positive integer.
-        
+
         filter is an optional callable that takes a relationship and returns
         a boolean True value if it should be included, and a False if not.
         """
 
     def findSources(target, maxDepth=1, filter=None):
         """Given a target, iterate over objects that point to it.
-        
+
         maxDepth is the number of relationships through which the search
         should walk transitively.  It must be a positive integer.
-        
+
         filter is an optional callable that takes a relationship and returns
         a boolean True value if it should be included, and a False if not.
         """
 
     def isLinked(source=None, target=None, maxDepth=1, filter=None):
         """given source, target, or both, return True if a link exists.
-        
+
         maxDepth is the number of relationships through which the search
         should walk transitively.  It must be a positive integer.
-        
+
         filter is an optional callable that takes a relationship and returns
         a boolean True value if it should be included, and a False if not.
         """
 
     def findRelationships(
-        source=None, target=None, maxDepth=1, filter=None):
+            source=None, target=None, maxDepth=1, filter=None):
         """given source, target, or both, iterate over all relationship paths.
-        
+
         maxDepth is the number of relationships through which the search
         should walk transitively.  It must be a positive integer.
-        
+
         filter is an optional callable that takes a relationship and returns
         a boolean True value if it should be included, and a False if not.
-        
+
         If a cycle is found, it is omitted by default.  if includeCycles is
         True, it returns the cycle in an ICircularRelationshipPath and then
         does not continue down the cycle.
@@ -243,6 +254,7 @@ class IBidirectionalRelationshipIndex(interface.Interface):
     def findRelationshipTokens(source, maxDepth=1, filter=None):
         """As findRelationships, but returns tokens rather than the objects"""
 
+
 class IRelationshipContainer(IReadContainer, IBidirectionalRelationshipIndex):
 
     def add(object):
@@ -251,17 +263,20 @@ class IRelationshipContainer(IReadContainer, IBidirectionalRelationshipIndex):
     def remove(object):
         """Remove a relationship from the container"""
 
+
 class IKeyReferenceRelationshipContainer(IRelationshipContainer):
     """holds relationships of objects that can be adapted to IKeyReference.
-    
+
     tokens are key references.
     """
 
+
 class IIntIdRelationshipContainer(IRelationshipContainer):
     """relationships and the objects they relate must have/be given an intid.
-    
+
     tokens are intids.
     """
+
 
 try:
     import zc.listcontainer.interfaces
@@ -269,8 +284,8 @@ except ImportError:
     pass
 else:
     class IRelationshipListContainer(
-        zc.listcontainer.interfaces.IListContainer,
-        IBidirectionalRelationshipIndex):
+            zc.listcontainer.interfaces.IListContainer,
+            IBidirectionalRelationshipIndex):
         """Uses the list container API to manage the relationships"""
 
     class IIntIdRelationshipListContainer(IRelationshipListContainer):

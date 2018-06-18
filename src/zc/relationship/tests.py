@@ -40,11 +40,14 @@ import zope.app.component.hooks
 
 from zc.relationship import intid, keyref, shared
 
+
 class Demo(persistent.Persistent):
     def __init__(self, id):
         self.id = id
+
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.id)
+
 
 def keyrefSetUp(test):
     placelesssetup.setUp()
@@ -71,6 +74,7 @@ def keyrefSetUp(test):
     test.globs['Container'] = keyref.Container
     test.globs['Relationship'] = shared.Relationship
 
+
 def intidSetUp(test):
     keyrefSetUp(test)
     app = test.globs['app']
@@ -82,6 +86,7 @@ def intidSetUp(test):
     test.globs['Container'] = intid.Container
     test.globs['Relationship'] = shared.Relationship
 
+
 def tearDown(test):
     zope.app.component.hooks.resetHooks()
     zope.app.component.hooks.setSite()
@@ -89,13 +94,16 @@ def tearDown(test):
     test.globs['db'].close()
     placelesssetup.tearDown()
 
+
 def READMESetUp(test):
     intidSetUp(test)
     zope.testing.module.setUp(test, 'zc.relationship.README')
 
+
 def READMETearDown(test):
     tearDown(test)
     zope.testing.module.tearDown(test)
+
 
 def test_suite():
     res = unittest.TestSuite((
@@ -107,8 +115,9 @@ def test_suite():
             'container.txt', setUp=keyrefSetUp, tearDown=tearDown),
         doctest.DocFileSuite(
             'container.txt', setUp=intidSetUp, tearDown=tearDown),
-        ))
+    ))
     return res
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

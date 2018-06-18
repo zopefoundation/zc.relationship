@@ -26,14 +26,18 @@ from zc.relationship import interfaces, shared
 def generateObjToken(ob, index, cache, **kwargs):
     return IKeyReference(ob)
 
+
 def resolveObjToken(token, index, cache, **kwargs):
     return token()
+
 
 def generateRelToken(ob, index, cache, **kwargs):
     return ob.__name__
 
+
 def resolveRelToken(token, index, cache, **kwargs):
     return index.__parent__[token]
+
 
 def Container():
     res = shared.Container(

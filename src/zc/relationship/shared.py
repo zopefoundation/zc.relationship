@@ -33,13 +33,13 @@ try:
     import zc.listcontainer
 except ImportError:
     class RelationshipBase(
-        persistent.Persistent, zope.app.container.contained.Contained):
+            persistent.Persistent, zope.app.container.contained.Contained):
         pass
 else:
     class RelationshipBase(
-        persistent.Persistent,
-        zope.app.container.contained.Contained,
-        zc.listcontainer.Contained):
+            persistent.Persistent,
+            zope.app.container.contained.Contained,
+            zc.listcontainer.Contained):
         pass
 
 try:
@@ -48,6 +48,7 @@ except NameError:
     # PY3
     def apply(func, *args, **kw):
         return func(*args, **kw)
+
 
 @interface.implementer(interfaces.IRelationship)
 class ImmutableRelationship(RelationshipBase):
@@ -69,6 +70,7 @@ class ImmutableRelationship(RelationshipBase):
     def __repr__(self):
         return '<Relationship from %r to %r>' % (self.sources, self.targets)
 
+
 @interface.implementer(interfaces.IMutableRelationship)
 class Relationship(ImmutableRelationship):
 
@@ -76,10 +78,11 @@ class Relationship(ImmutableRelationship):
     def sources():
         def get(self):
             return self._sources
+
         def set(self, value):
             self._sources = tuple(value)
             if interfaces.IBidirectionalRelationshipIndex.providedBy(
-                self.__parent__):
+                    self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -87,15 +90,17 @@ class Relationship(ImmutableRelationship):
     def targets():
         def get(self):
             return self._targets
+
         def set(self, value):
             self._targets = tuple(value)
             if interfaces.IBidirectionalRelationshipIndex.providedBy(
-                self.__parent__):
+                    self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
 # some small conveniences; maybe overkill, but I wanted some for a client
 # package.
+
 
 @interface.implementer(interfaces.IOneToOneRelationship)
 class OneToOneRelationship(ImmutableRelationship):
@@ -107,10 +112,11 @@ class OneToOneRelationship(ImmutableRelationship):
     def source():
         def get(self):
             return self._sources[0]
+
         def set(self, value):
             self._sources = (value,)
             if interfaces.IBidirectionalRelationshipIndex.providedBy(
-                self.__parent__):
+                    self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -118,12 +124,14 @@ class OneToOneRelationship(ImmutableRelationship):
     def target():
         def get(self):
             return self._targets[0]
+
         def set(self, value):
             self._targets = (value,)
             if interfaces.IBidirectionalRelationshipIndex.providedBy(
-                self.__parent__):
+                    self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
+
 
 @interface.implementer(interfaces.IOneToManyRelationship)
 class OneToManyRelationship(ImmutableRelationship):
@@ -135,10 +143,11 @@ class OneToManyRelationship(ImmutableRelationship):
     def source():
         def get(self):
             return self._sources[0]
+
         def set(self, value):
             self._sources = (value,)
             if interfaces.IBidirectionalRelationshipIndex.providedBy(
-                self.__parent__):
+                    self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -146,12 +155,14 @@ class OneToManyRelationship(ImmutableRelationship):
     def targets():
         def get(self):
             return self._targets
+
         def set(self, value):
             self._targets = tuple(value)
             if interfaces.IBidirectionalRelationshipIndex.providedBy(
-                self.__parent__):
+                    self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
+
 
 @interface.implementer(interfaces.IManyToOneRelationship)
 class ManyToOneRelationship(ImmutableRelationship):
@@ -163,10 +174,11 @@ class ManyToOneRelationship(ImmutableRelationship):
     def sources():
         def get(self):
             return self._sources
+
         def set(self, value):
             self._sources = tuple(value)
             if interfaces.IBidirectionalRelationshipIndex.providedBy(
-                self.__parent__):
+                    self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
@@ -174,14 +186,16 @@ class ManyToOneRelationship(ImmutableRelationship):
     def target():
         def get(self):
             return self._targets[0]
+
         def set(self, value):
             self._targets = (value,)
             if interfaces.IBidirectionalRelationshipIndex.providedBy(
-                self.__parent__):
+                    self.__parent__):
                 self.__parent__.reindex(self)
         return property(get, set)
 
 ##############################################################################
+
 
 class ResolvingFilter(object):
     def __init__(self, filter, container):
@@ -193,6 +207,7 @@ class ResolvingFilter(object):
             relchain[-1])
         return self.filter(obj)
 
+
 def minDepthFilter(depth):
     if depth is None:
         return None
@@ -200,11 +215,12 @@ def minDepthFilter(depth):
         raise ValueError('invalid minDepth', depth)
     return lambda relchain, query, index, cache: len(relchain) >= depth
 
+
 class AbstractContainer(persistent.Persistent):
     def __init__(self,
-        dumpSource=None, loadSource=None, sourceFamily=None,
-        dumpTarget=None, loadTarget=None, targetFamily=None,
-        **kwargs):
+                 dumpSource=None, loadSource=None, sourceFamily=None,
+                 dumpTarget=None, loadTarget=None, targetFamily=None,
+                 **kwargs):
         source = {'element': interfaces.IRelationship['sources'],
                   'name': 'source', 'multiple': True}
         target = {'element': interfaces.IRelationship['targets'],
@@ -335,6 +351,7 @@ class AbstractContainer(persistent.Persistent):
             self.findRelationshipTokens(
                 source, target, maxDepth, minDepth, filter))
 
+
 class Container(AbstractContainer, zope.app.container.btree.BTreeContainer):
 
     def __init__(self, *args, **kwargs):
@@ -345,7 +362,7 @@ class Container(AbstractContainer, zope.app.container.btree.BTreeContainer):
     def _generate_id(self, relationship):
         return ''.join(random.sample(
             "abcdefghijklmnopqrtstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890",
-            30)) # somewhat less than 64 ** 30 variations (64*63*...*35)
+            30))  # somewhat less than 64 ** 30 variations (64*63*...*35)
     # end subclass API
 
     def add(self, object):
