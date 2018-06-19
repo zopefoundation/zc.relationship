@@ -2,8 +2,8 @@
 Changes
 =======
 
-2.1 (unreleased)
-================
+2.0.post1 (2018-06-19)
+======================
 
 - Fix PyPI page by using correct ReST syntax.
 
