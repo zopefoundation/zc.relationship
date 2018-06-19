@@ -32,7 +32,7 @@ Changes in 2.0
 - support both 64-bit and 32-bit BTree families
 
 - support specifying indexed values by passing callables rather than
-  interface elements (which are also still supported).
+2.0 (2018-06-19)
 
 - in findValues and findValueTokens, `query` argument is now optional.  If
   the query evaluates to False in a boolean context, all values, or value
