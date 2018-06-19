@@ -38,7 +38,7 @@ setup(
     long_description="\n\n".join([
         read('src/zc/relationship/README.rst'),
         read('src/zc/relationship/container.rst'),
-        read('src/zc/relationship/CHANGES.rst'),
+        read('CHANGES.rst'),
     ]),
     classifiers=[
         'Programming Language :: Python :: 2',
