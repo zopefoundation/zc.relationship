@@ -34,6 +34,7 @@ setup(
     author='Gary Poster',
     author_email='gary@zope.com',
     description="Zope 3 relationship index.  Precursor to zc.relation.",
+    url="https://github.com/zopefoundation/zc.relationship",
     long_description="\n\n".join([
         read('src/zc/relationship/README.rst'),
         read('src/zc/relationship/container.rst'),
@@ -45,6 +46,8 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: Implementation :: CPython',
+        'License :: OSI Approved :: Zope Public License',
     ],
     license='ZPL 2.1',
     keywords="zope zope3",
