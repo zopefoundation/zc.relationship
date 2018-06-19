@@ -11,10 +11,7 @@
 # FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
-"""Relationships
-
-$Id$
-"""
-from zc.relationship.index import Index
-from zc.relationship.shared import Relationship
-from zc.relationship.intid import Container
+"""Relationships"""
+from zc.relationship.index import Index  # noqa
+from zc.relationship.shared import Relationship  # noqa
+from zc.relationship.intid import Container  # noqa

@@ -11,13 +11,10 @@
 # FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
-import re
-import types
 
 import persistent
 import persistent.interfaces
 import BTrees
-from BTrees import Length
 
 from zope import interface, component
 import zope.interface.interfaces
@@ -42,11 +39,12 @@ CircularRelationshipPath = zc.relation.catalog.CircularRelationPath
 ##############################################################################
 # a common case transitive queries factory
 
+
 @interface.implementer(interfaces.ITransitiveQueriesFactory)
 class TransposingTransitiveQueriesFactory(persistent.Persistent):
 
     def __init__(self, name1, name2):
-        self.names = [name1, name2] # a list so we can use index
+        self.names = [name1, name2]  # a list so we can use index
 
     def __call__(self, relchain, query, index, cache):
         dynamic = cache.get('dynamic')
@@ -79,8 +77,10 @@ class TransposingTransitiveQueriesFactory(persistent.Persistent):
                 res.update(static)
                 yield res
 
+
 def factoryWrapper(factory, query, index):
     cache = {}
+
     def getQueries(relchain):
         if not relchain:
             return (query,)
@@ -90,11 +90,13 @@ def factoryWrapper(factory, query, index):
 ##############################################################################
 # a common case intid getter and setter
 
+
 def generateToken(obj, index, cache):
     intids = cache.get('intids')
     if intids is None:
         intids = cache['intids'] = component.getUtility(IIntIds)
     return intids.register(obj)
+
 
 def resolveToken(token, index, cache):
     intids = cache.get('intids')
@@ -104,6 +106,7 @@ def resolveToken(token, index, cache):
 
 ##############################################################################
 # the relationship index
+
 
 @interface.implementer_only(
     interfaces.IIndex, interface.implementedBy(persistent.Persistent),
@@ -137,6 +140,7 @@ class Index(zc.relation.catalog.Catalog,
     # disable zc.relation default query factories, enable zc.relationship
     addDefaultQueryFactory = iterDefaultQueryFactories = None
     removeDefaultQueryFactory = None
+
     def _getQueryFactory(self, query, queryFactory):
         res = None
         if queryFactory is None:
@@ -153,14 +157,14 @@ class Index(zc.relation.catalog.Catalog,
         return self._relLength.value
 
     def wordCount(self):
-        return 0 # we don't index words
+        return 0  # we don't index words
 
     def apply(self, query):
         # there are two kinds of queries: values and relationships.
         if len(query) != 1:
             raise ValueError('one key in the primary query dictionary')
         (searchType, query) = list(query.items())[0]
-        if searchType=='relationships':
+        if searchType == 'relationships':
             relTools = self.getRelationModuleTools()
             if relTools['TreeSet'].__name__[:2] not in ('IF', 'LF'):
                 raise ValueError(
@@ -170,7 +174,7 @@ class Index(zc.relation.catalog.Catalog,
             if res is None:
                 res = relTools['TreeSet']()
             return res
-        elif searchType=='values':
+        elif searchType == 'values':
             data = self._attrs[query['resultName']]
             if data['TreeSet'].__name__[:2] not in ('IF', 'LF'):
                 raise ValueError(
@@ -184,7 +188,7 @@ class Index(zc.relation.catalog.Catalog,
                 query['resultName'], *(self._parse(
                     q, query.get('maxDepth'), query.get('filter'), targetq,
                     query.get('targetFilter'), getQueries) +
-                (True,)))
+                    (True,)))
             # IF and LF have multiunion; can demand its presence
             return data['multiunion'](tuple(iterable))
         else:
