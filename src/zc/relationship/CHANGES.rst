@@ -106,7 +106,7 @@ Changes in 2.0
     tokenization fails.  `target and tokenize({'target': target})` returns the
     target instead of the result of the tokenize function.
 
-- Made README.txt tests pass on hopefully wider set of machines (this was a
+- Made README.rst tests pass on hopefully wider set of machines (this was a
   test improvement; the relationship index did not have the fragility).
   Reported by Gabriel Shaar.
 

@@ -35,9 +35,9 @@ setup(
     author_email='gary@zope.com',
     description="Zope 3 relationship index.  Precursor to zc.relation.",
     long_description="\n\n".join([
-        read('src/zc/relationship/README.txt'),
-        read('src/zc/relationship/container.txt'),
-        read('src/zc/relationship/CHANGES.txt'),
+        read('src/zc/relationship/README.rst'),
+        read('src/zc/relationship/container.rst'),
+        read('src/zc/relationship/CHANGES.rst'),
     ]),
     classifiers=[
         'Programming Language :: Python :: 2',

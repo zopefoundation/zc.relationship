@@ -28,7 +28,7 @@ be found in plone.relations.  Its README is a good read.
 http://dev.plone.org/plone/browser/plone.relations/trunk/plone/relations
 
 This current document describes the relationship index.  See
-container.txt for documentation of the relationship container.
+container.rst for documentation of the relationship container.
 
 **PLEASE NOTE: the index in zc.relationship, described below, now exists for
 backwards compatibility.  zc.relation.catalog now contains the most recent,
@@ -715,7 +715,7 @@ and 'btree'.
   care.
 
 We will also use the intid utility to resolve relationship tokens.  See the
-relationship container (and container.txt) for examples of changing the
+relationship container (and container.rst) for examples of changing the
 relationship type, especially in keyref.py.
 
 Here are the methods we'll use for the 'subjects' and 'objects' tokens,

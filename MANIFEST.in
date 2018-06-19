@@ -1,5 +1,8 @@
 include *.py
+exclude bootstrap.py
+
 include *.txt
+include *.rst
 include buildout.cfg
 
 include .coveragerc
@@ -7,4 +10,4 @@ include tox.ini
 
 exclude MANIFEST.in
 
-recursive-include src *.txt
+recursive-include src *.rst

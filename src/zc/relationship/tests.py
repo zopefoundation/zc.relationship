@@ -108,13 +108,13 @@ def READMETearDown(test):
 def test_suite():
     res = unittest.TestSuite((
         doctest.DocFileSuite(
-            'README.txt',
+            'README.rst',
             setUp=READMESetUp, tearDown=READMETearDown,
         ),
         doctest.DocFileSuite(
-            'container.txt', setUp=keyrefSetUp, tearDown=tearDown),
+            'container.rst', setUp=keyrefSetUp, tearDown=tearDown),
         doctest.DocFileSuite(
-            'container.txt', setUp=intidSetUp, tearDown=tearDown),
+            'container.rst', setUp=intidSetUp, tearDown=tearDown),
     ))
     return res
 
