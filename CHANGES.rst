@@ -2,8 +2,14 @@
 Changes
 =======
 
-2.0
-===
+2.1 (unreleased)
+================
+
+- Fix PyPI page by using correct ReST syntax.
+
+
+2.0 (2018-06-19)
+================
 
 The 2.x line is almost completely compatible with the 1.x line.
 The one notable incompatibility does not affect the use of relationship
@@ -32,13 +38,7 @@ Changes in 2.0
 - support both 64-bit and 32-bit BTree families
 
 - support specifying indexed values by passing callables rather than
-2.1 (unreleased)
-----------------
-
-- Nothing changed yet.
-
-
-2.0 (2018-06-19)
+  interface elements (which are also still supported).
 
 - in findValues and findValueTokens, `query` argument is now optional.  If
   the query evaluates to False in a boolean context, all values, or value
@@ -72,8 +72,8 @@ Changes in 2.0
 - Added test extra to declare test dependency on ``zope.app.folder``.
 
 
-1.1
-===
+Branch 1.1
+==========
 
 (supports Zope 3.4/Zope 2.11/ZODB 3.8)
 
@@ -84,8 +84,8 @@ Changes in 2.0
 
 - converted buildout to rely exclusively on eggs
 
-1.0
-===
+Branch 1.0
+==========
 
 (supports Zope 3.3/Zope 2.10/ZODB 3.7)
 
