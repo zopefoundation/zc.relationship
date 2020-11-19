@@ -5,7 +5,7 @@ Changes
 2.1 (unreleased)
 ================
 
-- Nothing changed yet.
+- Add support for Python 3.7 up to 3.9.
 
 
 2.0.post1 (2018-06-19)

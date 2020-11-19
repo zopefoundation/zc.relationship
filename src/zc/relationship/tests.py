@@ -24,7 +24,7 @@ import transaction
 import persistent
 from persistent.interfaces import IPersistent
 from ZODB.interfaces import IConnection
-from ZODB.tests.util import DB
+from ZODB.MappingStorage import DB
 
 from zope import component
 import zope.component.interfaces
