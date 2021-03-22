@@ -27,7 +27,7 @@ from ZODB.interfaces import IConnection
 from ZODB.MappingStorage import DB
 
 from zope import component
-import zope.component.interfaces
+import zope.interface.interfaces
 import zope.location.interfaces
 from zope.app.testing import placelesssetup
 from zope.app.keyreference.persistent import (
@@ -55,7 +55,7 @@ def keyrefSetUp(test):
     component.provideAdapter(
         SiteManagerAdapter,
         (zope.location.interfaces.ILocation,),
-        zope.component.interfaces.IComponentLookup)
+        zope.interface.interfaces.IComponentLookup)
     component.provideAdapter(
         connectionOfPersistent,
         adapts=(IPersistent,),
@@ -80,7 +80,7 @@ def intidSetUp(test):
     app = test.globs['app']
     sm = app.getSiteManager()
     sm['intids'] = IntIds()
-    registry = zope.component.interfaces.IComponentRegistry(sm)
+    registry = zope.interface.interfaces.IComponentRegistry(sm)
     registry.registerUtility(sm['intids'], IIntIds)
     transaction.commit()
     test.globs['Container'] = intid.Container
