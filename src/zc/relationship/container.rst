@@ -61,8 +61,8 @@ utilities.  Here's an example of adding one as a local utilty.
 
     >>> sm = app.getSiteManager()
     >>> sm['lineage_relationship'] = container
-    >>> import zope.component.interfaces
-    >>> registry = zope.component.interfaces.IComponentRegistry(sm)
+    >>> import zope.interface.interfaces
+    >>> registry = zope.interface.interfaces.IComponentRegistry(sm)
     >>> registry.registerUtility(
     ...     container, interfaces.IRelationshipContainer, 'lineage')
     >>> import transaction

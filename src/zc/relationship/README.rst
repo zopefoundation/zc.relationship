@@ -790,8 +790,8 @@ no need to install it as utility.  This is just an example.
     >>> from zope import interface
     >>> sm = app.getSiteManager()
     >>> sm['rel_index'] = ix
-    >>> import zope.component.interfaces
-    >>> registry = zope.component.interfaces.IComponentRegistry(sm)
+    >>> import zope.interface.interfaces
+    >>> registry = zope.interface.interfaces.IComponentRegistry(sm)
     >>> registry.registerUtility(ix, interfaces.IIndex)
     >>> import transaction
     >>> transaction.commit()
