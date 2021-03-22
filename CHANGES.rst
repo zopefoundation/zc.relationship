@@ -31,7 +31,7 @@ New Requirements
 Incompatibilities with 1.0
 --------------------------
 
-- `findRelationships` will now use the defaultTransitiveQueriesFactory if it
+- ``findRelationships`` will now use the defaultTransitiveQueriesFactory if it
   is set.  Set ``maxDepth`` to 1 if you do not want this behavior.
 
 - Some instantiation exceptions have different error messages.
