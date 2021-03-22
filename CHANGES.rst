@@ -2,7 +2,7 @@
 Changes
 =======
 
-2.1 (unreleased)
+2.1 (2021-03-22)
 ================
 
 - Add support for Python 3.7 up to 3.9.
