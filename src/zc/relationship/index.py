@@ -15,13 +15,13 @@
 import BTrees
 import persistent
 import persistent.interfaces
+import zc.relation.catalog
 import zope.app.container.contained
 import zope.interface.interfaces
 from zope import component
 from zope import interface
 from zope.app.intid.interfaces import IIntIds
 
-import zc.relation.catalog
 from zc.relationship import interfaces
 
 
@@ -118,7 +118,7 @@ class Index(zc.relation.catalog.Catalog,
     def __init__(self, attrs, defaultTransitiveQueriesFactory=None,
                  dumpRel=generateToken, loadRel=resolveToken,
                  relFamily=None, family=None, deactivateSets=False):
-        super(Index, self).__init__(dumpRel, loadRel, relFamily, family)
+        super().__init__(dumpRel, loadRel, relFamily, family)
         self.defaultTransitiveQueriesFactory = defaultTransitiveQueriesFactory
         for data in attrs:
             if zope.interface.interfaces.IElement.providedBy(data):
@@ -224,7 +224,7 @@ class Index(zc.relation.catalog.Catalog,
         # argument names changed slightly
         if targetQuery is None:
             targetQuery = ()
-        return super(Index, self).findValueTokens(
+        return super().findValueTokens(
             resultName, query, maxDepth, filter, targetQuery, targetFilter,
             transitiveQueriesFactory, True)
 
@@ -234,7 +234,7 @@ class Index(zc.relation.catalog.Catalog,
         # argument names changed slightly
         if targetQuery is None:
             targetQuery = ()
-        return super(Index, self).findValues(
+        return super().findValues(
             resultName, query, maxDepth, filter, targetQuery, targetFilter,
             transitiveQueriesFactory)
 
@@ -244,7 +244,7 @@ class Index(zc.relation.catalog.Catalog,
         # argument names changed slightly
         if targetQuery is None:
             targetQuery = ()
-        return super(Index, self).findRelations(
+        return super().findRelations(
             query, maxDepth, filter, targetQuery, targetFilter,
             transitiveQueriesFactory)
 
@@ -254,7 +254,7 @@ class Index(zc.relation.catalog.Catalog,
         # argument names changed slightly
         if targetQuery is None:
             targetQuery = ()
-        return super(Index, self).findRelationTokens(
+        return super().findRelationTokens(
             query, maxDepth, filter, targetQuery, targetFilter,
             transitiveQueriesFactory, True)
 
@@ -264,7 +264,7 @@ class Index(zc.relation.catalog.Catalog,
         # argument names changed slightly
         if targetQuery is None:
             targetQuery = ()
-        return super(Index, self).findRelationTokenChains(
+        return super().findRelationTokenChains(
             query, maxDepth, filter, targetQuery, targetFilter,
             transitiveQueriesFactory)
 
@@ -274,7 +274,7 @@ class Index(zc.relation.catalog.Catalog,
         # argument names changed slightly
         if targetQuery is None:
             targetQuery = ()
-        return super(Index, self).findRelationChains(
+        return super().findRelationChains(
             query, maxDepth, filter, targetQuery, targetFilter,
             transitiveQueriesFactory)
 
@@ -284,6 +284,6 @@ class Index(zc.relation.catalog.Catalog,
         # argument names changed slightly
         if targetQuery is None:
             targetQuery = ()
-        return super(Index, self).canFind(
+        return super().canFind(
             query, maxDepth, filter, targetQuery, targetFilter,
             transitiveQueriesFactory)

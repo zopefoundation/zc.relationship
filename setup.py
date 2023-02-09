@@ -32,7 +32,7 @@ setup(
     namespace_packages=['zc'],
     zip_safe=False,
     author='Gary Poster',
-    author_email='gary@zope.com',
+    author_email='zope-dev@zope.dev',
     description="Zope 3 relationship index.  Precursor to zc.relation.",
     url="https://github.com/zopefoundation/zc.relationship",
     long_description="\n\n".join([
@@ -52,6 +52,7 @@ setup(
     ],
     license='ZPL 2.1',
     keywords="zope zope3",
+    python_requires='>=3.7',
     install_requires=[
         'ZODB3 >= 3.8dev',
         'zope.app.container',  # would be nice to remove this
@@ -65,7 +66,6 @@ setup(
         'zope.app.testing',
         'zope.app.component',
         'zope.testing',
-        'six',
         'setuptools',
     ],
     extras_require=dict(

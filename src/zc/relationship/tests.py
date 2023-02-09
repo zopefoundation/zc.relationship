@@ -48,7 +48,7 @@ class Demo(persistent.Persistent):
         self.id = id
 
     def __repr__(self):
-        return '<%s %s>' % (self.__class__.__name__, self.id)
+        return '<{} {}>'.format(self.__class__.__name__, self.id)
 
 
 def keyrefSetUp(test):
