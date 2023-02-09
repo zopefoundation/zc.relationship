@@ -2,7 +2,7 @@
 Changes
 =======
 
-2.2 (unreleased)
+3.0 (unreleased)
 ================
 
 - Nothing changed yet.
