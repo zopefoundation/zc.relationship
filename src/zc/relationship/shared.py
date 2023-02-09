@@ -11,19 +11,17 @@
 # FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
-"""Relationship shared code
-
-$Id$
-"""
+"""Relationship shared code."""
 import random
-import six
 
 import persistent
-from zope import interface
-import zope.app.container.contained
 import zope.app.container.btree
+import zope.app.container.contained
+from zope import interface
 
-from zc.relationship import interfaces, index
+from zc.relationship import index
+from zc.relationship import interfaces
+
 
 ##############################################################################
 # some useful relationship variants
@@ -42,12 +40,9 @@ else:
             zc.listcontainer.Contained):
         pass
 
-try:
-    apply
-except NameError:
-    # PY3
-    def apply(func, *args, **kw):
-        return func(*args, **kw)
+
+def apply(func, *args, **kw):
+    return func(*args, **kw)
 
 
 @interface.implementer(interfaces.IRelationship)
@@ -68,7 +63,7 @@ class ImmutableRelationship(RelationshipBase):
         return self._targets
 
     def __repr__(self):
-        return '<Relationship from %r to %r>' % (self.sources, self.targets)
+        return f'<Relationship from {self.sources!r} to {self.targets!r}>'
 
 
 @interface.implementer(interfaces.IMutableRelationship)
@@ -106,7 +101,7 @@ class Relationship(ImmutableRelationship):
 class OneToOneRelationship(ImmutableRelationship):
 
     def __init__(self, source, target):
-        super(OneToOneRelationship, self).__init__((source,), (target,))
+        super().__init__((source,), (target,))
 
     @apply
     def source():
@@ -137,7 +132,7 @@ class OneToOneRelationship(ImmutableRelationship):
 class OneToManyRelationship(ImmutableRelationship):
 
     def __init__(self, source, targets):
-        super(OneToManyRelationship, self).__init__((source,), targets)
+        super().__init__((source,), targets)
 
     @apply
     def source():
@@ -168,7 +163,7 @@ class OneToManyRelationship(ImmutableRelationship):
 class ManyToOneRelationship(ImmutableRelationship):
 
     def __init__(self, sources, target):
-        super(ManyToOneRelationship, self).__init__(sources, (target,))
+        super().__init__(sources, (target,))
 
     @apply
     def sources():
@@ -197,7 +192,7 @@ class ManyToOneRelationship(ImmutableRelationship):
 ##############################################################################
 
 
-class ResolvingFilter(object):
+class ResolvingFilter:
     def __init__(self, filter, container):
         self.filter = filter
         self.container = container
@@ -211,7 +206,7 @@ class ResolvingFilter(object):
 def minDepthFilter(depth):
     if depth is None:
         return None
-    if not isinstance(depth, six.integer_types) or depth < 1:
+    if not isinstance(depth, int) or depth < 1:
         raise ValueError('invalid minDepth', depth)
     return lambda relchain, query, index, cache: len(relchain) >= depth
 

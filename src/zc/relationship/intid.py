@@ -17,7 +17,8 @@ $Id$
 """
 from zope import interface
 
-from zc.relationship import interfaces, shared
+from zc.relationship import interfaces
+from zc.relationship import shared
 
 
 def Container():

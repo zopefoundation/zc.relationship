@@ -13,5 +13,5 @@
 ##############################################################################
 """Relationships"""
 from zc.relationship.index import Index  # noqa
-from zc.relationship.shared import Relationship  # noqa
 from zc.relationship.intid import Container  # noqa
+from zc.relationship.shared import Relationship  # noqa

@@ -15,12 +15,12 @@
 
 $Id$
 """
-from zope import interface
 from BTrees import OOBTree
-
+from zope import interface
 from zope.app.keyreference.interfaces import IKeyReference
 
-from zc.relationship import interfaces, shared
+from zc.relationship import interfaces
+from zc.relationship import shared
 
 
 def generateObjToken(ob, index, cache, **kwargs):

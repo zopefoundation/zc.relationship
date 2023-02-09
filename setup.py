@@ -11,10 +11,10 @@
 # FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
+import os
+
 from setuptools import find_packages
 from setuptools import setup
-
-import os
 
 
 def read(path):
@@ -25,14 +25,14 @@ def read(path):
 
 setup(
     name="zc.relationship",
-    version='2.2.dev0',
+    version='3.0.dev0',
     packages=find_packages('src'),
     include_package_data=True,
     package_dir={'': 'src'},
     namespace_packages=['zc'],
     zip_safe=False,
     author='Gary Poster',
-    author_email='gary@zope.com',
+    author_email='zope-dev@zope.dev',
     description="Zope 3 relationship index.  Precursor to zc.relation.",
     url="https://github.com/zopefoundation/zc.relationship",
     long_description="\n\n".join([
@@ -41,19 +41,18 @@ setup(
         read('CHANGES.rst'),
     ]),
     classifiers=[
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: Implementation :: CPython',
         'License :: OSI Approved :: Zope Public License',
     ],
     license='ZPL 2.1',
     keywords="zope zope3",
+    python_requires='>=3.7',
     install_requires=[
         'ZODB3 >= 3.8dev',
         'zope.app.container',  # would be nice to remove this
@@ -67,7 +66,6 @@ setup(
         'zope.app.testing',
         'zope.app.component',
         'zope.testing',
-        'six',
         'setuptools',
     ],
     extras_require=dict(
