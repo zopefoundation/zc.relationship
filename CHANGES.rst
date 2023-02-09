@@ -5,7 +5,7 @@ Changes
 3.0 (unreleased)
 ================
 
-- Nothing changed yet.
+- Drop support for Python 2.7, 3.5, 3.6.
 
 
 2.1 (2021-03-22)
