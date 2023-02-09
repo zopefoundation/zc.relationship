@@ -15,10 +15,12 @@
 
 $Id$
 """
+import zope.index.interfaces
 from zope import interface
 from zope.app.container.interfaces import IReadContainer
-import zope.index.interfaces
+
 import zc.relation.interfaces
+
 
 ICircularRelationshipPath = zc.relation.interfaces.ICircularRelationPath
 

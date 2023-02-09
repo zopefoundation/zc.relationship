@@ -15,30 +15,32 @@
 
 $Id$
 """
-import unittest
 import doctest
-import zope.testing.module
+import unittest
 
+import persistent
 # these are used by setup
 import transaction
-import persistent
+import zope.app.component.hooks
+import zope.interface.interfaces
+import zope.location.interfaces
+import zope.testing.module
 from persistent.interfaces import IPersistent
 from ZODB.interfaces import IConnection
 from ZODB.MappingStorage import DB
-
 from zope import component
-import zope.interface.interfaces
-import zope.location.interfaces
-from zope.app.testing import placelesssetup
-from zope.app.keyreference.persistent import (
-    KeyReferenceToPersistent, connectionOfPersistent)
+from zope.app.component.site import LocalSiteManager
+from zope.app.component.site import SiteManagerAdapter
 from zope.app.folder import rootFolder
-from zope.app.component.site import LocalSiteManager, SiteManagerAdapter
 from zope.app.intid import IntIds
 from zope.app.intid.interfaces import IIntIds
-import zope.app.component.hooks
+from zope.app.keyreference.persistent import KeyReferenceToPersistent
+from zope.app.keyreference.persistent import connectionOfPersistent
+from zope.app.testing import placelesssetup
 
-from zc.relationship import intid, keyref, shared
+from zc.relationship import intid
+from zc.relationship import keyref
+from zc.relationship import shared
 
 
 class Demo(persistent.Persistent):
@@ -111,13 +113,11 @@ def test_suite():
             'README.rst',
             setUp=READMESetUp, tearDown=READMETearDown,
         ),
-        doctest.DocFileSuite(
-            'container.rst', setUp=keyrefSetUp, tearDown=tearDown),
-        doctest.DocFileSuite(
-            'container.rst', setUp=intidSetUp, tearDown=tearDown),
+        doctest.DocFileSuite(  # keyrefSetUp
+            'container.rst', setUp=keyrefSetUp, tearDown=tearDown,
+            optionflags=doctest.ELLIPSIS),
+        doctest.DocFileSuite(  # intidSetUp
+            'container.rst', setUp=intidSetUp, tearDown=tearDown,
+            optionflags=doctest.ELLIPSIS),
     ))
     return res
-
-
-if __name__ == '__main__':
-    unittest.main(defaultTest='test_suite')

@@ -12,18 +12,18 @@
 #
 ##############################################################################
 
+import BTrees
 import persistent
 import persistent.interfaces
-import BTrees
-
-from zope import interface, component
-import zope.interface.interfaces
-from zope.app.intid.interfaces import IIntIds
 import zope.app.container.contained
-
-from zc.relationship import interfaces
+import zope.interface.interfaces
+from zope import component
+from zope import interface
+from zope.app.intid.interfaces import IIntIds
 
 import zc.relation.catalog
+from zc.relationship import interfaces
+
 
 # N.B.
 # this is now a subclass of the zc.relation.catalog.Catalog.  It only exists

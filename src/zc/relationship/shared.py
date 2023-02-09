@@ -16,14 +16,17 @@
 $Id$
 """
 import random
+
 import six
 
 import persistent
-from zope import interface
-import zope.app.container.contained
 import zope.app.container.btree
+import zope.app.container.contained
+from zope import interface
 
-from zc.relationship import interfaces, index
+from zc.relationship import index
+from zc.relationship import interfaces
+
 
 ##############################################################################
 # some useful relationship variants

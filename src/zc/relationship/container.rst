@@ -988,7 +988,7 @@ The `ManyToOneRelationship`'s `sources` attribute is mutable, while it's
     >>> rel.targets = (app['ob22'],)
     Traceback (most recent call last):
     ...
-    AttributeError: can't set attribute
+    AttributeError: ...
 
 But the relationship has an additional mutable `target` attribute.
 
@@ -1058,7 +1058,7 @@ The `OneToManyRelationship`'s `targets` attribute is mutable, while it's
     >>> rel.sources = (app['ob23'],)
     Traceback (most recent call last):
     ...
-    AttributeError: can't set attribute
+    AttributeError: ...
 
 But the relationship has an additional mutable `source` attribute.
 
