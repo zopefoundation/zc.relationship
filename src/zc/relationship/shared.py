@@ -27,18 +27,9 @@ from zc.relationship import interfaces
 # some useful relationship variants
 #
 
-try:
-    import zc.listcontainer
-except ImportError:
-    class RelationshipBase(
-            persistent.Persistent, zope.app.container.contained.Contained):
-        pass
-else:
-    class RelationshipBase(
-            persistent.Persistent,
-            zope.app.container.contained.Contained,
-            zc.listcontainer.Contained):
-        pass
+class RelationshipBase(
+        persistent.Persistent, zope.app.container.contained.Contained):
+    pass
 
 
 def apply(func, *args, **kw):

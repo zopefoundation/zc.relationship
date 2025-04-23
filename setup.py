@@ -42,17 +42,17 @@ setup(
     ]),
     classifiers=[
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: Implementation :: CPython',
         'License :: OSI Approved :: Zope Public License',
     ],
-    license='ZPL 2.1',
+    license='ZPL-2.1',
     keywords="zope zope3",
-    python_requires='>=3.7',
+    python_requires='>=3.9',
     install_requires=[
         'ZODB3 >= 3.8dev',
         'zope.app.container',  # would be nice to remove this

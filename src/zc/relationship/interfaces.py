@@ -277,17 +277,3 @@ class IIntIdRelationshipContainer(IRelationshipContainer):
 
     tokens are intids.
     """
-
-
-try:
-    import zc.listcontainer.interfaces
-except ImportError:
-    pass
-else:
-    class IRelationshipListContainer(
-            zc.listcontainer.interfaces.IListContainer,
-            IBidirectionalRelationshipIndex):
-        """Uses the list container API to manage the relationships"""
-
-    class IIntIdRelationshipListContainer(IRelationshipListContainer):
-        """tokens are intids"""
