@@ -5,10 +5,15 @@ Changes
 3.0 (unreleased)
 ================
 
+- Add support for Python 3.12, 3.13.
+
+- Drop support for Python 3.7, 3.8.
+
 - Add support for Python 3.10, 3.11.
 
 - Drop support for Python 2.7, 3.5, 3.6.
 
+- Drop support for not existing ``zc.listcontainer``.
 
 2.1 (2021-03-22)
 ================
