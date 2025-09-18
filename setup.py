@@ -13,7 +13,6 @@
 ##############################################################################
 import os
 
-from setuptools import find_packages
 from setuptools import setup
 
 
@@ -26,10 +25,7 @@ def read(path):
 setup(
     name="zc.relationship",
     version='3.0.dev0',
-    packages=find_packages('src'),
     include_package_data=True,
-    package_dir={'': 'src'},
-    namespace_packages=['zc'],
     zip_safe=False,
     author='Gary Poster',
     author_email='zope-dev@zope.dev',
