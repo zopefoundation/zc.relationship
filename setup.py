@@ -24,7 +24,7 @@ def read(path):
 
 setup(
     name="zc.relationship",
-    version='3.0',
+    version='3.1.dev0',
     include_package_data=True,
     zip_safe=False,
     author='Gary Poster',
